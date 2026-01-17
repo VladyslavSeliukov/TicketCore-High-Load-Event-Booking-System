@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = 'dev'
 
     DEFAULT_PAGE_LIMIT: int = 100
+    DEFAULT_OFFSET: int = 0
 
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str

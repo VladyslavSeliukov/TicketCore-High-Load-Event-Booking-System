@@ -3,7 +3,7 @@ from src.core.config import settings
 
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.env == 'dev',
+    echo=settings.ENVIRONMENT == 'dev',
     future=True
 )
 

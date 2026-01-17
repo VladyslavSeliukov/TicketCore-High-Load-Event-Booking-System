@@ -9,7 +9,7 @@ from alembic import context
 
 from src.core.config import settings
 from src.db.base import Base
-from src.models.ticket import Ticket
+from src.models import *
 
 config = context.config
 

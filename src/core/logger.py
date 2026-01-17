@@ -68,4 +68,6 @@ def get_logger(name: str) -> logging.Logger:
 
     logger.propagate = False
 
+    return logger
+
 logger = get_logger('ticketcore')
