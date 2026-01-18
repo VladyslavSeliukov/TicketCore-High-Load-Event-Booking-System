@@ -1,8 +1,8 @@
-"""init file fix
+"""remode cascade delete
 
-Revision ID: cd6343e5879c
-Revises: 36895cbad93a
-Create Date: 2026-01-17 16:37:12.039244
+Revision ID: d6f1bed1d330
+Revises: c55e58eb26f5
+Create Date: 2026-01-18 19:57:26.988699
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'cd6343e5879c'
-down_revision: Union[str, Sequence[str], None] = '36895cbad93a'
+revision: str = 'd6f1bed1d330'
+down_revision: Union[str, Sequence[str], None] = 'c55e58eb26f5'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

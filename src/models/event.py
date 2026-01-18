@@ -16,7 +16,7 @@ class Event(Base):
     city: Mapped[str] = mapped_column(String(100), nullable=False)
     street_address: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    tickets: Mapped[list['Ticket']] = relationship('Ticket', back_populates='event', cascade='all, delete')
+    tickets: Mapped[list['Ticket']] = relationship('Ticket', back_populates='event')
 
     __table_args__ = (
         CheckConstraint('tickets_quantity > 0', name='check_ticket_quantity'),
