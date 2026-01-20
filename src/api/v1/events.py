@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.schemas.event import EventCreate, EventResponse
+from src.schemas.event import EventCreate, EventResponse, EventUpdate
 from src.core.config import settings
 from src.core.logger import logger
 from src.db.session import get_db
@@ -69,7 +69,7 @@ async def delete_event(
     except IntegrityError as e:
         await db.rollback()
 
-        logger.warning(f'User tried to delete the {event_id} event, but tickets for it already exist')
+        logger.warning(f'User tried to delete the {event_id} event, but tickets for it already exist {e}')
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail='Cannot delete this event, because ticket for it already exist'
@@ -85,8 +85,40 @@ async def delete_event(
 
     return None
 
-@router.put('/', status_code=status.HTTP_204_NO_CONTENT)
+@router.put('/{event_id}', response_model=EventResponse, status_code=status.HTTP_200_OK)
 async def update_event(
-
+        event_id: int,
+        update_data: EventUpdate,
+        db: AsyncSession = Depends(get_db)
 ):
-    pass
+    event = await db.get(Event, event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Event not found'
+        )
+
+    update_data = update_data.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='No field provided for update'
+        )
+
+    for key, value in update_data.items():
+        setattr(event, key, value)
+
+    try:
+        await db.commit()
+        await db.refresh(event)
+
+        logger.info(f'Event updated {event_id}')
+        return event
+    except SQLAlchemyError as e:
+        await db.rollback()
+
+        logger.error(f'Database error occurred while updating {event_id} event {e}')
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='Database error while updating event'
+        )

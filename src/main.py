@@ -24,7 +24,7 @@ async def integrity_exception_handler(request: Request, exc: IntegrityError):
         }
     )
 
-@app.get('/health', include_in_schema=False)
+@app.get('/health', tags=['System'])
 async def main():
     return {
         'status' : 'healthy',

@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
-from src.schemas.ticket import TicketCreate, TicketResponse
+from src.schemas.ticket import TicketCreate, TicketResponse, TicketUpdate
 from src.core.config import settings
 from src.db.session import get_db
 from src.models import Event
@@ -90,8 +90,48 @@ async def delete_ticket(
             detail='Database error while deleting ticket'
         )
 
-@router.put('/', status_code=status.HTTP_200_OK)
+@router.put('/{ticket_id}', response_model=TicketResponse, status_code=status.HTTP_200_OK)
 async def update_ticket(
-
+    ticket_id: int,
+    update_data:  TicketUpdate,
+    db: AsyncSession = Depends(get_db)
 ):
-    pass
+    query = (
+        select(Ticket)
+        .options(joinedload(Ticket.event))
+        .filter(Ticket.id == ticket_id)
+    )
+    result = await db.execute(query)
+    ticket = result.scalars().first()
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Ticket not found'
+        )
+
+    update_dict = update_data.model_dump(exclude_unset=True)
+    if not update_dict:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='No field provided for update'
+        )
+
+    for key, value in update_dict.items():
+        setattr(ticket, key, value)
+
+    try:
+        await db.commit()
+        await db.refresh(ticket)
+
+        ticket.event_title = ticket.event.title
+
+        logger.info(f'Ticket updated {ticket_id}')
+        return ticket
+    except SQLAlchemyError as e:
+        await db.rollback()
+
+        logger.error(f'Database error occurred while updating {ticket_id} ticket {e}')
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='Database error while updating ticket'
+        )
