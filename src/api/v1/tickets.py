@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import joinedload
 
 from src.schemas.ticket import TicketCreate, TicketResponse, TicketUpdate
@@ -18,23 +18,42 @@ async def create_ticket(
         ticket: TicketCreate,
         db: AsyncSession = Depends(get_db)
 ):
-    event = await db.get(Event, ticket.event_id)
-    if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail='Event not found'
-        )
-
     try:
+        query = (
+            select(Event)
+            .filter(Event.id == ticket.event_id)
+            .with_for_update()
+    )
+        result = await db.execute(query)
+        event = result.scalars().first()
+        if not event:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail='Event not found'
+            )
+
+        count_query = (
+            func.count(Ticket.id)
+            .where(Ticket.event_id == event.id)
+        )
+        result_count = await db.execute(count_query)
+        tickets_sold = result_count.scalars()
+
+        if tickets_sold >= event.tickets_quality:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail='Sold out! No ticket avaliable'
+            )
+
         ticket_dict = ticket.model_dump()
         new_ticket = Ticket(**ticket_dict)
         db.add(new_ticket)
-        await db.commit()
 
+        await db.commit()
         await db.refresh(new_ticket)
+
         new_ticket.event_title = event.title
         logger.info(f'Ticket created {new_ticket.id}')
-
         return new_ticket
     except SQLAlchemyError as e:
         await db.rollback()
