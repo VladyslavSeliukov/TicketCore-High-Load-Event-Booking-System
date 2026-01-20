@@ -42,12 +42,15 @@ async def get_events(
         page_limit: int = settings.DEFAULT_PAGE_LIMIT,
         db : AsyncSession = Depends(get_db)
 ):
-    query = select(Event).offset(offset).limit(page_limit)
+    query = (
+        select(Event)
+        .offset(offset)
+        .limit(page_limit)
+    )
     result = await db.execute(query)
     events = result.scalars().all()
 
     return events
-
 
 @router.delete('/{event_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_event(

@@ -24,6 +24,7 @@ async def create_ticket(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Event not found'
         )
+
     try:
         ticket_dict = ticket.model_dump()
         new_ticket = Ticket(**ticket_dict)
@@ -63,7 +64,6 @@ async def get_tickets(
 
     return tickets
 
-
 @router.delete('/{ticket_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_ticket(
     ticket_id: int,
@@ -102,6 +102,7 @@ async def update_ticket(
         .filter(Ticket.id == ticket_id)
     )
     result = await db.execute(query)
+
     ticket = result.scalars().first()
     if not ticket:
         raise HTTPException(
