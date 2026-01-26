@@ -2,13 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
 
 from src.schemas.ticket import TicketCreate, TicketResponse, TicketUpdate
 from src.core.config import settings
 from src.db.session import get_db
-from src.models import Event
-from src.models.ticket import Ticket
+from src.models import Event, Ticket
 from src.core.logger import logger
 
 router = APIRouter()
@@ -33,16 +32,16 @@ async def create_ticket(
             )
 
         count_query = (
-            func.count(Ticket.id)
+            select(func.count(Ticket.id))
             .where(Ticket.event_id == event.id)
         )
         result_count = await db.execute(count_query)
-        tickets_sold = result_count.scalars()
+        tickets_sold = result_count.scalar()
 
-        if tickets_sold >= event.tickets_quality:
+        if tickets_sold >= event.tickets_quantity:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail='Sold out! No ticket avaliable'
+                detail='Sold out! No ticket available'
             )
 
         ticket_dict = ticket.model_dump()
@@ -64,6 +63,26 @@ async def create_ticket(
             detail='Database error occurred while creating ticket'
         )
 
+@router.get('/{ticket_id}', response_model=TicketResponse, status_code=status.HTTP_200_OK)
+async def get_ticket(
+        ticket_id: int = 0,
+        db: AsyncSession = Depends(get_db)
+):
+    query = (
+        select(Ticket)
+        .options(selectinload(Ticket.event))
+        .filter(Ticket.id == ticket_id)
+    )
+    result = await db.execute(query)
+    ticket = result.scalars().first()
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Ticket not found'
+        )
+    ticket.event_title = ticket.event.title
+    return ticket
+
 @router.get('/', response_model=list[TicketResponse], status_code=status.HTTP_200_OK)
 async def get_tickets(
         offset: int = 0,
@@ -72,7 +91,7 @@ async def get_tickets(
 ):
     query = (
         select(Ticket)
-        .options(joinedload(Ticket.event))
+        .options(selectinload(Ticket.event))
         .offset(offset)
         .limit(page_limit))
     result = await db.execute(query)
@@ -117,7 +136,7 @@ async def update_ticket(
 ):
     query = (
         select(Ticket)
-        .options(joinedload(Ticket.event))
+        .options(selectinload(Ticket.event))
         .filter(Ticket.id == ticket_id)
     )
     result = await db.execute(query)

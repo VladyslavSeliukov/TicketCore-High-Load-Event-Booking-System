@@ -1,8 +1,8 @@
-"""file fix
+"""init_commit
 
-Revision ID: c55e58eb26f5
-Revises: cd6343e5879c
-Create Date: 2026-01-17 16:43:13.792643
+Revision ID: 694afb21028b
+Revises: 
+Create Date: 2026-01-26 15:28:30.217164
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'c55e58eb26f5'
-down_revision: Union[str, Sequence[str], None] = 'cd6343e5879c'
+revision: str = '694afb21028b'
+down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -37,6 +37,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('event_id', sa.Integer(), nullable=False),
     sa.Column('price', sa.Integer(), nullable=False),
+    sa.CheckConstraint('price > 0', name=op.f('ck_tickets_check_ticket_price')),
     sa.ForeignKeyConstraint(['event_id'], ['events.id'], name=op.f('fk_tickets_event_id_events')),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_tickets'))
     )

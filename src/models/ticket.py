@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, ForeignKey
+from sqlalchemy import Integer, ForeignKey, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.db.base import Base
 
@@ -11,3 +11,7 @@ class Ticket(Base):
     price: Mapped[int] = mapped_column(Integer, nullable=False)
 
     event: Mapped['Event'] = relationship('Event', back_populates='tickets')
+
+    __table_args__ = (
+        CheckConstraint('price > 0', name='check_ticket_price'),
+    )

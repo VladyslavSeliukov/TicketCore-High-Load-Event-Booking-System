@@ -8,7 +8,7 @@ from src.schemas.event import EventCreate, EventResponse, EventUpdate
 from src.core.config import settings
 from src.core.logger import logger
 from src.db.session import get_db
-from src.models.event import Event
+from src.models import Event
 
 router = APIRouter()
 
@@ -36,10 +36,24 @@ async def create_event(
             detail='Database error while creating event'
         )
 
+@router.get('/{event_id}', response_model=EventResponse, status_code=status.HTTP_200_OK)
+async def get_event(
+        event_id: int = 0,
+        db: AsyncSession = Depends(get_db)
+):
+    event = await db.get(Event, event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Event not found'
+        )
+
+    return event
+
 @router.get('/', response_model=list[EventResponse], status_code=status.HTTP_200_OK)
 async def get_events(
-        offset: int = 0,
-        page_limit: int = settings.DEFAULT_PAGE_LIMIT,
+        offset : int = 0,
+        page_limit : int = settings.DEFAULT_PAGE_LIMIT,
         db : AsyncSession = Depends(get_db)
 ):
     query = (

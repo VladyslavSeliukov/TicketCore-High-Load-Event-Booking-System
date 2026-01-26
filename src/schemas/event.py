@@ -17,7 +17,7 @@ class EventResponse(EventCreate):
 
 class EventUpdate(EventCreate):
     title: str = Field(None, min_length=1, max_length=100, description='Title of the event', examples=['Korn Europe Tour 2026'])
-    date: datetime = Field(None, description='Datate of the event', examples=['2026-01-01T14:15:45'])
+    date: datetime = Field(None, description='Data of the event', examples=['2026-01-01T14:15:45'])
     tickets_quantity: int = Field(None, gt=0, description='Quantity of the tickets', examples=[100])
 
     country: str = Field(None, description='Country of the event', examples=['Poland'])
