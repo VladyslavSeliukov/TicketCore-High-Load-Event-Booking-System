@@ -1,15 +1,19 @@
 import asyncio
 import asyncpg
 import pytest
+from dotenv import load_dotenv
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import text, NullPool
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
+load_dotenv()
+
 from src.core.config import settings
 from src.db.base import Base
 from src.main import app
 from src.db.session import get_db
+from tests.factories import EventFactory, TicketFactory
 
 TEST_DB_NAME = f'{settings.POSTGRES_DB}_test'
 SYSTEM_URL = settings.DATABASE_URL.replace(f'/{settings.POSTGRES_DB}', '/postgres')
@@ -17,6 +21,30 @@ TEST_DB_URL = settings.DATABASE_URL.replace(f'/{settings.DATABASE_URL}', f'/{TES
 
 test_engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool)
 TestingSession = sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+
+@pytest.fixture
+async def event_factory(db_connection):
+    async def _create(**kwargs):
+        event = EventFactory.build(**kwargs)
+
+        db_connection.add(event)
+        await db_connection.commit()
+        await db_connection.refresh(event)
+
+        return event
+    return _create
+
+@pytest.fixture
+async def ticket_factory(db_connection):
+    async def _create(event_id, price, **kwargs):
+        ticket = TicketFactory.build(event_id, **kwargs)
+
+        db_connection.add(ticket)
+        await db_connection.commit()
+        await db_connection.refresh(ticket)
+
+        return ticket
+    return _create
 
 @pytest.fixture(scope='session')
 def event_loop():

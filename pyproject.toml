@@ -26,3 +26,11 @@ packages = ["src"]
 pythonpath = "."
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "polyfactory>=3.2.0",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+]

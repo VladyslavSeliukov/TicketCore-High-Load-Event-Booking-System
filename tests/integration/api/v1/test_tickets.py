@@ -1,27 +1,22 @@
 import pytest
 from datetime import datetime
 
+from factories import EventFactory
+
 @pytest.mark.asyncio
-async def test_create_event_flow(client):
-    event_payload = {
-        'title' : 'test event',
-        'date' : datetime.now().isoformat(),
-        'tickets_quantity' : 50,
-        'country' : 'Poland',
-        'city' : 'Wroclaw',
-        'street_address' : 'test street 1'
-    }
-    response = await client.post('/api/v1/events/', json=event_payload)
-    assert response.status_code == 201
-    event_id = response.json().get('id')
+async def test_create_event_flow(client, db_connection):
+    event = EventFactory.build()
+    db_connection.add(event)
+    await db_connection.commit()
+    await db_connection.refresh(event)
 
     ticket_payload = {
-        'event_id' : event_id,
+        'event_id' : event.id,
         'price' : 500
     }
     response = await client.post('/api/v1/tickets/', json=ticket_payload)
     assert response.status_code == 201
-    assert response.json()['event_title'] == 'test event'
+    assert response.json()['event_title'] == event.title
 
 @pytest.mark.asyncio
 async def test_get_unexisted_ticket(client):

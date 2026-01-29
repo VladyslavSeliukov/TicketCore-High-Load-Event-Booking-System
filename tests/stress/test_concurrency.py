@@ -2,22 +2,17 @@ import pytest
 import asyncio
 from datetime import datetime
 
+from factories import EventFactory
+
 @pytest.mark.asyncio
-async def test_race_condition_overselling(client):
-    event_payload = {
-        'title': 'test event',
-        'date': datetime.now().isoformat(),
-        'tickets_quantity': 5,
-        'country': 'Poland',
-        'city': 'Wroclaw',
-        'street_address': 'test street 1'
-    }
-    event_response = await client.post('/api/v1/events/', json=event_payload)
-    assert event_response.status_code == 201
-    event_id = event_response.json()['id']
+async def test_race_condition_overselling(client, db_connection):
+    event = EventFactory.build(tickets_quantity = 5)
+    db_connection.add(event)
+    await db_connection.commit()
+    await db_connection.refresh(event)
 
     ticket_payload = {
-        'event_id' : event_id,
+        'event_id' : event.id,
         'price' : 100
     }
     async def buy_ticket():
