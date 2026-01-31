@@ -1,4 +1,5 @@
 import asyncio
+
 import asyncpg
 import pytest
 from dotenv import load_dotenv
@@ -6,6 +7,8 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy import text, NullPool
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+
+from factories import UserFactory
 
 load_dotenv()
 
@@ -21,30 +24,6 @@ TEST_DB_URL = settings.DATABASE_URL.replace(f'/{settings.DATABASE_URL}', f'/{TES
 
 test_engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool)
 TestingSession = sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
-
-@pytest.fixture
-async def event_factory(db_connection):
-    async def _create(**kwargs):
-        event = EventFactory.build(**kwargs)
-
-        db_connection.add(event)
-        await db_connection.commit()
-        await db_connection.refresh(event)
-
-        return event
-    return _create
-
-@pytest.fixture
-async def ticket_factory(db_connection):
-    async def _create(event_id, price, **kwargs):
-        ticket = TicketFactory.build(event_id, **kwargs)
-
-        db_connection.add(ticket)
-        await db_connection.commit()
-        await db_connection.refresh(ticket)
-
-        return ticket
-    return _create
 
 @pytest.fixture(scope='session')
 def event_loop():
@@ -86,7 +65,7 @@ async def setup_test_db(event_loop):
 @pytest.fixture(autouse=True)
 async def clean_tables():
     async with TestingSession() as session:
-        await session.execute(text('TRUNCATE TABLE tickets, events RESTART IDENTITY CASCADE;'))
+        await session.execute(text('TRUNCATE TABLE tickets, events, users RESTART IDENTITY CASCADE;'))
         await session.commit()
 
 @pytest.fixture
@@ -106,3 +85,83 @@ async def client():
         yield c
 
     app.dependency_overrides.clear()
+
+@pytest.fixture
+async def event_factory(db_connection):
+    async def _create(**kwargs):
+        event = EventFactory.build(**kwargs)
+
+        db_connection.add(event)
+        await db_connection.commit()
+        await db_connection.refresh(event)
+
+        return event
+    return _create
+
+@pytest.fixture
+async def ticket_factory(db_connection):
+    async def _create(event_id, price, **kwargs):
+        ticket = TicketFactory.build(event_id, **kwargs)
+
+        db_connection.add(ticket)
+        await db_connection.commit()
+        await db_connection.refresh(ticket)
+
+        return ticket
+    return _create
+
+@pytest.fixture
+async def normal_user(db_connection):
+    user = UserFactory.build()
+
+    db_connection.add(user)
+    await db_connection.commit()
+    await db_connection.refresh(user)
+
+    return user
+
+@pytest.fixture
+async def superuser(db_connection):
+    superuser  = UserFactory.build(is_superuser = True)
+
+    db_connection.add(superuser)
+    await db_connection.commit()
+    await db_connection.refresh(superuser)
+
+    return superuser
+
+@pytest.fixture
+async def user_token_headers(client, user):
+    login_data = {
+        'email' : user.email,
+        'hashed_password' : 'very_secure_password'
+    }
+
+    response = await client.post('/api/v1/auth/login', data=login_data)
+    assert response.status_code == 201
+    token = response.json()['access']
+
+    return {'Authorization' : f'Bearer {token}'}
+
+@pytest.fixture
+async def superuser_koken_headers(client, superuser):
+    loging_data = {
+        'username' : superuser.email,
+        'password' : 'very_secure_password'
+    }
+
+    response = await client.post('/api/v1/auth/login/', data=loging_data)
+    assert response.status_code == 201
+    token = response.json()['access_token']
+
+    return {'Authorization' : f'Bearer{token}'}
+
+@pytest.fixture
+async def authorized_client(client, user_token_headers):
+    client.headers.update(user_token_headers)
+    return client
+
+@pytest.fixture
+async def authorized_superuser(client, superuser_token_headers):
+    client.headers.update(superuser_token_headers)
+    return client
