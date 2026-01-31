@@ -21,7 +21,7 @@ The goal was to move beyond "Junior" implementation patterns and apply industry-
 
 ## 🛠 Tech Stack
 
-* **Backend:** Python 3.11, FastAPI, Pydantic V2 (Strict typing).
+* **Backend:** Python 3.12, FastAPI, Pydantic V2 (Strict typing).
 * **Database:** PostgreSQL 16 (Asyncpg driver + SQLAlchemy 2.0).
 * **Concurrency & Caching:** Redis 7.
 * **Message Broker:** RabbitMQ / Arq (Worker queues).
@@ -83,21 +83,18 @@ The system was stress-tested using **Locust** to identify bottlenecks.
 ```bash
 git clone https://github.com/yourusername/ticket-core.git
 cd ticket-core
-
 ```
 
 
 2. **Start Services (App, DB, Redis, Worker)**
 ```bash
 docker-compose up --build -d
-
 ```
 
 
 3. **Run Migrations**
 ```bash
 docker-compose exec app alembic upgrade head
-
 ```
 
 
@@ -108,17 +105,16 @@ Open `http://localhost:8000/docs` to interact with the Swagger UI.
 
 ```bash
 docker-compose exec app pytest
-
 ```
 
 ---
 
 ## 📬 Contact
 
-**Vlad Seliukov** - Backend Python Engineer
+**Vladyslav Seliukov** - Backend Python Engineer
 
-* [GitHub Profile Link]
-* [LinkedIn Profile Link]
-* seliukovvladyslav@gmail.com 
+* [GitHub Profile Link](https://github.com/VladyslavSeliukov)
+* [LinkedIn Profile Link](https://www.linkedin.com/in/vladyslav-seliukov/)
+* seliukovvladyslav@gmail.com
 
 > *Built as a capstone engineering project to demonstrate proficiency in Distributed Systems and Backend Architecture.*
