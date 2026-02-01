@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from starlette.responses import JSONResponse
 
 from src.core.config import settings
-from src.api.v1 import tickets, events
+from src.api.v1 import tickets, events, auth
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -11,6 +11,7 @@ app = FastAPI(
     openapi_url=f'{settings.API_V1_STR}/openapi.json'
 )
 
+app.include_router(auth.router, prefix=f'{settings.API_V1_STR}/auth', tags=['Auth'])
 app.include_router(tickets.router, prefix=f'{settings.API_V1_STR}/tickets', tags=['Tickets'])
 app.include_router(events.router, prefix=f'{settings.API_V1_STR}/events', tags=['Events'])
 

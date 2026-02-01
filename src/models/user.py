@@ -1,0 +1,17 @@
+from pygments.lexer import default
+from sqlalchemy import String, Boolean
+from sqlalchemy.orm import Mapped
+from sqlalchemy.testing.schema import mapped_column
+
+from src.db.base import Base
+
+class User(Base):
+    __tablename__ = 'users'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    email: Mapped[str] = mapped_column(String(100), index=True, unique=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_superuser: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     API_V1_STR: str = '/api/v1'
     ENVIRONMENT: str = 'dev'
 
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
     DEFAULT_PAGE_LIMIT: int = 100
     DEFAULT_OFFSET: int = 0
 
