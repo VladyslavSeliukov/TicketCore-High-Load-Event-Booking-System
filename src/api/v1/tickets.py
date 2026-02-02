@@ -1,3 +1,5 @@
+from tabnanny import check
+
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import select, func
@@ -16,41 +18,45 @@ async def create_ticket(
         ticket: TicketCreate,
         db: DBDep
 ):
-    try:
-        query = (
-            select(Event)
-            .filter(Event.id == ticket.event_id)
-            .with_for_update()
+
+    query = (
+        select(Event)
+        .where(Event.id == ticket.event_id)
+        .where(Event.tickets_quantity < Event.tickets_sold)
+        .values(tickets_sold=Event.tickets_sold + 1)
+        .returning(Event)
     )
-        result = await db.execute(query)
-        event = result.scalars().first()
-        if not event:
+    result = await db.execute(query)
+    event = result.scalar_one_or_none()
+
+    if not event:
+        check_query = select(Event.id).where(Event.id == ticket.event_id)
+        check_result = await db.execute(check_query)
+        event_exists = check_result.scal_one_or_none()
+
+        if not event_exists:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail='Event not found'
             )
 
-        count_query = (
-            select(func.count(Ticket.id))
-            .where(Ticket.event_id == event.id)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail='Sold out. No ticket available'
         )
-        result_count = await db.execute(count_query)
-        tickets_sold = result_count.scalar()
 
-        if tickets_sold >= event.tickets_quantity:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail='Sold out! No ticket available'
-            )
+    new_ticket = Ticket(
+        event_id = event.id,
+        price = ticket.price
+    )
 
-        ticket_dict = ticket.model_dump()
-        new_ticket = Ticket(**ticket_dict)
-        db.add(new_ticket)
-
+    db.add(new_ticket)
+    try:
         await db.commit()
         await db.refresh(new_ticket)
 
         new_ticket.event_title = event.title
+
         logger.info(f'Ticket created {new_ticket.id}')
         return new_ticket
     except SQLAlchemyError as e:
