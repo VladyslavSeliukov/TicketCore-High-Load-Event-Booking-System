@@ -1,12 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
+from src.api.deps import DBDep
 from src.schemas.ticket import TicketCreate, TicketResponse, TicketUpdate
 from src.core.config import settings
-from src.db.session import get_db
 from src.models import Event, Ticket
 from src.core.logger import logger
 
@@ -15,7 +14,7 @@ router = APIRouter()
 @router.post('/', response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
 async def create_ticket(
         ticket: TicketCreate,
-        db: AsyncSession = Depends(get_db)
+        db: DBDep
 ):
     try:
         query = (
@@ -65,8 +64,8 @@ async def create_ticket(
 
 @router.get('/{ticket_id}', response_model=TicketResponse, status_code=status.HTTP_200_OK)
 async def get_ticket(
-        ticket_id: int = 0,
-        db: AsyncSession = Depends(get_db)
+        db: DBDep,
+        ticket_id: int = 0
 ):
     query = (
         select(Ticket)
@@ -85,9 +84,9 @@ async def get_ticket(
 
 @router.get('/', response_model=list[TicketResponse], status_code=status.HTTP_200_OK)
 async def get_tickets(
+        db: DBDep,
         offset: int = 0,
-        page_limit: int = settings.DEFAULT_PAGE_LIMIT,
-        db: AsyncSession = Depends(get_db)
+        page_limit: int = settings.DEFAULT_PAGE_LIMIT
 ):
     query = (
         select(Ticket)
@@ -105,7 +104,7 @@ async def get_tickets(
 @router.delete('/{ticket_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_ticket(
     ticket_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: DBDep
 ):
     ticket = await db.get(Ticket, ticket_id)
     if not ticket:
@@ -132,7 +131,7 @@ async def delete_ticket(
 async def update_ticket(
     ticket_id: int,
     update_data:  TicketUpdate,
-    db: AsyncSession = Depends(get_db)
+    db: DBDep
 ):
     query = (
         select(Ticket)

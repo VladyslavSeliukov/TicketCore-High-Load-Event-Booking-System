@@ -1,7 +1,5 @@
-from pygments.lexer import default
 from sqlalchemy import String, Boolean
-from sqlalchemy.orm import Mapped
-from sqlalchemy.testing.schema import mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base
 
