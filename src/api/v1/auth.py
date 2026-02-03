@@ -11,7 +11,7 @@ from src.schemas import UserResponse, UserCreate, Token
 
 router = APIRouter()
 
-@router.post('/', response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post('/signup', response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register_user(
         user_in: UserCreate,
         session: DBDep
@@ -39,7 +39,7 @@ async def register_user(
 
     return new_user
 
-@router.post('/', response_model=Token)
+@router.post('/login', response_model=Token)
 async def login_for_access_token(
         form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
         session: DBDep
