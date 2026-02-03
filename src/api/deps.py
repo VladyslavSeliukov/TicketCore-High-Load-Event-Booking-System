@@ -6,8 +6,8 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql.annotation import Annotated
 
+from typing import Annotated
 from src.core import settings
 from src.db.session import get_db
 from src.models import User
