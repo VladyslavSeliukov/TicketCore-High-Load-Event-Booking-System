@@ -13,6 +13,7 @@ class EventCreate(BaseModel):
 
 class EventResponse(EventCreate):
     id: int
+    tickets_sold: int
     model_config = ConfigDict(from_attributes=True)
 
 class EventUpdate(EventCreate):

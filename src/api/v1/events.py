@@ -1,11 +1,11 @@
-from fastapi import APIRouter, status, HTTPException
+from fastapi import APIRouter, status, HTTPException, Depends
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
-from src.api.deps import DBDep
+from src.api.deps import DBDep, get_current_superuser
 from src.core.config import settings
 from src.core.logger import logger
-from src.models import Event
+from src.models import Event, User
 from src.schemas.event import EventCreate, EventResponse, EventUpdate
 
 router = APIRouter()
@@ -13,7 +13,8 @@ router = APIRouter()
 @router.post('/', response_model=EventResponse, status_code=status.HTTP_201_CREATED)
 async def create_event(
         event: EventCreate,
-        db: DBDep
+        db: DBDep,
+        admin_user: User = Depends(get_current_superuser)
 ):
     try:
         event_dict = event.model_dump()

@@ -1,14 +1,13 @@
-from tabnanny import check
-
 from fastapi import APIRouter, HTTPException, status
+from fastapi.params import Depends
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import select, func
+from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 
-from src.api.deps import DBDep
+from src.api.deps import DBDep, get_current_user
 from src.schemas.ticket import TicketCreate, TicketResponse, TicketUpdate
 from src.core.config import settings
-from src.models import Event, Ticket
+from src.models import Event, Ticket, User
 from src.core.logger import logger
 
 router = APIRouter()
@@ -16,13 +15,14 @@ router = APIRouter()
 @router.post('/', response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
 async def create_ticket(
         ticket: TicketCreate,
-        db: DBDep
+        db: DBDep,
+        user: User = Depends(get_current_user)
 ):
 
     query = (
-        select(Event)
+        update(Event)
         .where(Event.id == ticket.event_id)
-        .where(Event.tickets_quantity < Event.tickets_sold)
+        .where(Event.tickets_quantity > Event.tickets_sold)
         .values(tickets_sold=Event.tickets_sold + 1)
         .returning(Event)
     )
@@ -32,7 +32,7 @@ async def create_ticket(
     if not event:
         check_query = select(Event.id).where(Event.id == ticket.event_id)
         check_result = await db.execute(check_query)
-        event_exists = check_result.scal_one_or_none()
+        event_exists = check_result.scalar_one_or_none()
 
         if not event_exists:
             raise HTTPException(
@@ -46,8 +46,8 @@ async def create_ticket(
         )
 
     new_ticket = Ticket(
-        event_id = event.id,
-        price = ticket.price
+        owner_id = user.id,
+        **ticket.model_dump()
     )
 
     db.add(new_ticket)
