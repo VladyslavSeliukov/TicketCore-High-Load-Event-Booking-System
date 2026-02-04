@@ -1,21 +1,20 @@
 from fastapi import APIRouter, status, HTTPException, Depends
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from src.schemas.event import EventCreate, EventResponse, EventUpdate
+from src.api.deps import DBDep, get_current_superuser
 from src.core.config import settings
 from src.core.logger import logger
-from src.db.session import get_db
-from src.models import Event
+from src.models import Event, User
+from src.schemas.event import EventCreate, EventResponse, EventUpdate
 
 router = APIRouter()
 
 @router.post('/', response_model=EventResponse, status_code=status.HTTP_201_CREATED)
 async def create_event(
-        event : EventCreate,
-        db : AsyncSession = Depends(get_db)
+        event: EventCreate,
+        db: DBDep,
+        admin_user: User = Depends(get_current_superuser)
 ):
     try:
         event_dict = event.model_dump()
@@ -38,8 +37,8 @@ async def create_event(
 
 @router.get('/{event_id}', response_model=EventResponse, status_code=status.HTTP_200_OK)
 async def get_event(
-        event_id: int = 0,
-        db: AsyncSession = Depends(get_db)
+        db: DBDep,
+        event_id: int = 0
 ):
     event = await db.get(Event, event_id)
     if not event:
@@ -52,9 +51,9 @@ async def get_event(
 
 @router.get('/', response_model=list[EventResponse], status_code=status.HTTP_200_OK)
 async def get_events(
+        db: DBDep,
         offset : int = 0,
-        page_limit : int = settings.DEFAULT_PAGE_LIMIT,
-        db : AsyncSession = Depends(get_db)
+        page_limit : int = settings.DEFAULT_PAGE_LIMIT
 ):
     query = (
         select(Event)
@@ -69,7 +68,7 @@ async def get_events(
 @router.delete('/{event_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_event(
     event_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: DBDep
 ):
     event = await db.get(Event, event_id)
     if not event:
@@ -104,9 +103,9 @@ async def delete_event(
 
 @router.put('/{event_id}', response_model=EventResponse, status_code=status.HTTP_200_OK)
 async def update_event(
+        db: DBDep,
         event_id: int,
         update_data: EventUpdate,
-        db: AsyncSession = Depends(get_db)
 ):
     event = await db.get(Event, event_id)
     if not event:

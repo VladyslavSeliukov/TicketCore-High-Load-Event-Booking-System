@@ -7,10 +7,13 @@ class Ticket(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    event_id: Mapped[int] = mapped_column(ForeignKey('events.id'), nullable=False)
     price: Mapped[int] = mapped_column(Integer, nullable=False)
 
+    event_id: Mapped[int] = mapped_column(ForeignKey('events.id'), nullable=False)
     event: Mapped['Event'] = relationship('Event', back_populates='tickets')
+
+    owner_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False)
+    owner: Mapped['User'] = relationship('User', back_populates='tickets')
 
     __table_args__ = (
         CheckConstraint('price > 0', name='check_ticket_price'),

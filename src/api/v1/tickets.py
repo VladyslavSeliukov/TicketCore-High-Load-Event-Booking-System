@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
+from fastapi.params import Depends
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 
+from src.api.deps import DBDep, get_current_user
 from src.schemas.ticket import TicketCreate, TicketResponse, TicketUpdate
 from src.core.config import settings
-from src.db.session import get_db
-from src.models import Event, Ticket
+from src.models import Event, Ticket, User
 from src.core.logger import logger
 
 router = APIRouter()
@@ -15,43 +15,48 @@ router = APIRouter()
 @router.post('/', response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
 async def create_ticket(
         ticket: TicketCreate,
-        db: AsyncSession = Depends(get_db)
+        db: DBDep,
+        user: User = Depends(get_current_user)
 ):
-    try:
-        query = (
-            select(Event)
-            .filter(Event.id == ticket.event_id)
-            .with_for_update()
+
+    query = (
+        update(Event)
+        .where(Event.id == ticket.event_id)
+        .where(Event.tickets_quantity > Event.tickets_sold)
+        .values(tickets_sold=Event.tickets_sold + 1)
+        .returning(Event)
     )
-        result = await db.execute(query)
-        event = result.scalars().first()
-        if not event:
+    result = await db.execute(query)
+    event = result.scalar_one_or_none()
+
+    if not event:
+        check_query = select(Event.id).where(Event.id == ticket.event_id)
+        check_result = await db.execute(check_query)
+        event_exists = check_result.scalar_one_or_none()
+
+        if not event_exists:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail='Event not found'
             )
 
-        count_query = (
-            select(func.count(Ticket.id))
-            .where(Ticket.event_id == event.id)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail='Sold out. No ticket available'
         )
-        result_count = await db.execute(count_query)
-        tickets_sold = result_count.scalar()
 
-        if tickets_sold >= event.tickets_quantity:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail='Sold out! No ticket available'
-            )
+    new_ticket = Ticket(
+        owner_id = user.id,
+        **ticket.model_dump()
+    )
 
-        ticket_dict = ticket.model_dump()
-        new_ticket = Ticket(**ticket_dict)
-        db.add(new_ticket)
-
+    db.add(new_ticket)
+    try:
         await db.commit()
         await db.refresh(new_ticket)
 
         new_ticket.event_title = event.title
+
         logger.info(f'Ticket created {new_ticket.id}')
         return new_ticket
     except SQLAlchemyError as e:
@@ -65,8 +70,8 @@ async def create_ticket(
 
 @router.get('/{ticket_id}', response_model=TicketResponse, status_code=status.HTTP_200_OK)
 async def get_ticket(
-        ticket_id: int = 0,
-        db: AsyncSession = Depends(get_db)
+        db: DBDep,
+        ticket_id: int = 0
 ):
     query = (
         select(Ticket)
@@ -85,9 +90,9 @@ async def get_ticket(
 
 @router.get('/', response_model=list[TicketResponse], status_code=status.HTTP_200_OK)
 async def get_tickets(
+        db: DBDep,
         offset: int = 0,
-        page_limit: int = settings.DEFAULT_PAGE_LIMIT,
-        db: AsyncSession = Depends(get_db)
+        page_limit: int = settings.DEFAULT_PAGE_LIMIT
 ):
     query = (
         select(Ticket)
@@ -105,7 +110,7 @@ async def get_tickets(
 @router.delete('/{ticket_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_ticket(
     ticket_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: DBDep
 ):
     ticket = await db.get(Ticket, ticket_id)
     if not ticket:
@@ -132,7 +137,7 @@ async def delete_ticket(
 async def update_ticket(
     ticket_id: int,
     update_data:  TicketUpdate,
-    db: AsyncSession = Depends(get_db)
+    db: DBDep
 ):
     query = (
         select(Ticket)
