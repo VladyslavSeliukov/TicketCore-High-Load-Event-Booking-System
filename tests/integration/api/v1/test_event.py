@@ -1,34 +1,60 @@
 import pytest
-from datetime import datetime
+from fastapi import status
+from sqlalchemy import select
 
-from factories import EventFactory, TicketFactory
-from src.models import Ticket
+from factories import EventPayloadFactory
+from src.models import Event
 
-@pytest.mark.asyncio
-async def test_create_event(client):
-    event = EventFactory.build()
-
-    event_payload = {
-        'title' : event.title,
-        'date' : event.date.isoformat(),
-        'tickets_quantity' : event.tickets_quantity,
-        'country' : event.country,
-        'city' : event.city,
-        'street_address' : event.street_address
-    }
-    response = await client.post('/api/v1/events/', json=event_payload)
-    assert response.status_code == 201
 
 @pytest.mark.asyncio
-async def test_delete_event_with_ticket(client, db_connection):
-    event = EventFactory.build()
-    db_connection.add(event)
-    await db_connection.commit()
-    await db_connection.refresh(event)
+async def test_create_event_by_superuser(db_connection, authorized_superuser):
+    event_model = EventPayloadFactory.build()
+    event_dict = event_model.model_dump(mode='json')
 
-    ticket = Ticket(event_id = event.id, price = 50)
-    db_connection.add(ticket)
-    await db_connection.commit()
+    response = await authorized_superuser.post('/api/v1/events/', json = event_dict)
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
 
-    response = await client.delete(f'/api/v1/events/{event.id}')
-    assert response.status_code == 409
+    assert data['title'] == event_model.title
+    assert data['tickets_quantity'] == event_model.tickets_quantity
+
+    query = select(Event).where(Event.title == event_model.title)
+    result = await db_connection.execute(query)
+    found_event = result.scalar_one_or_none()
+    assert found_event is not None
+
+@pytest.mark.asyncio
+async def test_create_event_by_user(db_connection, authorized_client):
+    event_model = EventPayloadFactory.build()
+    event_dict = event_model.model_dump(mode='json')
+
+    response = await authorized_client.post('/api/v1/events/', json = event_dict)
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    assert "User doesn't have permission" in response.json().get('detail')
+
+    query = select(Event).where(Event.title == event_model.title)
+    result = await db_connection.execute(query)
+    found_event = result.scalar_one_or_none()
+    assert found_event is None
+
+@pytest.mark.asyncio
+async def test_create_event_without_token(client):
+    event_model = EventPayloadFactory.build()
+    event_dict = event_model.model_dump(mode='json')
+
+    response = await client.post('/api/v1/events/', json=event_dict)
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+@pytest.mark.asyncio
+async def test_create_event_with_negative_ticket_quality(authorized_superuser):
+    event_model = EventPayloadFactory.build()
+    event_dict = event_model.model_dump(mode='json')
+    event_dict['tickets_quantity'] = -10
+
+    response = await authorized_superuser.post('/api/v1/events/', json = event_dict)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    error_detail = response.json()
+
+    assert any(err['loc'][-1] == 'tickets_quantity' for err in error_detail['detail'])

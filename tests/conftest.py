@@ -1,16 +1,16 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import asyncio
 
 import asyncpg
 import pytest
-from dotenv import load_dotenv
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import text, NullPool
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from factories import UserFactory
-
-load_dotenv()
 
 from src.core.config import settings
 from src.db.base import Base
@@ -131,30 +131,30 @@ async def superuser(db_connection):
     return superuser
 
 @pytest.fixture
-async def user_token_headers(client, user):
+async def user_token_headers(client, normal_user):
     login_data = {
-        'email' : user.email,
-        'hashed_password' : 'very_secure_password'
+        'username' : normal_user.email,
+        'password' : 'very_secure_password'
     }
 
     response = await client.post('/api/v1/auth/login', data=login_data)
-    assert response.status_code == 201
-    token = response.json()['access']
+    assert response.status_code == 200
+    token = response.json()['access_token']
 
     return {'Authorization' : f'Bearer {token}'}
 
 @pytest.fixture
-async def superuser_koken_headers(client, superuser):
-    loging_data = {
+async def superuser_token_headers(client, superuser):
+    login_data = {
         'username' : superuser.email,
         'password' : 'very_secure_password'
     }
 
-    response = await client.post('/api/v1/auth/login/', data=loging_data)
-    assert response.status_code == 201
-    token = response.json()['access_token']
+    response = await client.post('/api/v1/auth/login', data=login_data)
+    assert response.status_code == 200
 
-    return {'Authorization' : f'Bearer{token}'}
+    token = response.json()['access_token']
+    return {'Authorization' : f'Bearer {token}'}
 
 @pytest.fixture
 async def authorized_client(client, user_token_headers):
