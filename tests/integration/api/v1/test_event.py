@@ -91,8 +91,6 @@ class TestEventGet:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-@pytest.mark.asyncio
-class TestEventPagination:
     async def test_event_pagination(self, client, db_connection):
         factory_events = EventFactory.batch(10)
         db_connection.add_all(factory_events)
