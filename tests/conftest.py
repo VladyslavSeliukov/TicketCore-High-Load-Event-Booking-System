@@ -1,16 +1,18 @@
 from dotenv import load_dotenv
+
+from src.models import Event
+
 load_dotenv()
 
 import asyncio
-
 import asyncpg
 import pytest
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import text, NullPool
+from sqlalchemy import text, NullPool, select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from factories import UserFactory
+from tests.factories import UserFactory
 
 from src.core.config import settings
 from src.db.base import Base
@@ -157,7 +159,7 @@ async def superuser_token_headers(client, superuser):
     return {'Authorization' : f'Bearer {token}'}
 
 @pytest.fixture
-async def authorized_client(client, user_token_headers):
+async def authorized_user(client, user_token_headers):
     client.headers.update(user_token_headers)
     return client
 
@@ -165,3 +167,33 @@ async def authorized_client(client, user_token_headers):
 async def authorized_superuser(client, superuser_token_headers):
     client.headers.update(superuser_token_headers)
     return client
+
+@pytest.fixture
+async def event_in_db(db_connection):
+    existing_event = EventFactory.build()
+
+    db_connection.add(existing_event)
+    await db_connection.commit()
+    await db_connection.refresh(existing_event)
+
+    return existing_event
+
+@pytest.fixture
+async def get_event_by_id(db_connection):
+    async def _get_event(id: int) -> Event:
+        query = select(Event).where(Event.id == id)
+        result = await db_connection.execute(query)
+
+        return result.scalar_one_or_none()
+
+    return _get_event
+
+@pytest.fixture
+async def get_event_by_title(db_connection):
+    async def _get_event(title: str) -> Event:
+        query = select(Event).where(Event.title == title)
+        result = await db_connection.execute(query)
+
+        return result.scalar_one_or_none()
+
+    return _get_event

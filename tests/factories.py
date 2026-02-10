@@ -31,8 +31,8 @@ class EventFactory(SQLAlchemyFactory[Event]):
 class TicketFactory(SQLAlchemyFactory[Ticket]):
     __model__ = Ticket
 
-    owner = Use(UserFactory)
-    event = Use(EventFactory)
+    owner = Use(UserFactory.build)
+    event = Use(EventFactory.build)
 
 class EventPayloadFactory(ModelFactory[EventCreate]):
     __model__ = EventCreate
