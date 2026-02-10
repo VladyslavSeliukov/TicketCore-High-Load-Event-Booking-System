@@ -1,10 +1,8 @@
 import pytest
 from fastapi import status
-from sqlalchemy import select
 
 from conftest import event_in_db, get_event_by_id
 from factories import EventPayloadFactory, EventFactory, TicketFactory
-from src.models import Event
 
 BASE_URL = '/api/v1/events/'
 
