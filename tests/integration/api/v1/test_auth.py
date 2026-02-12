@@ -1,79 +1,130 @@
 import pytest
+from datetime import timedelta
 from fastapi import status
 from sqlalchemy import select
 
+from factories import UserFactory
+from src.core.security import create_access_token
 from src.models import User
+from utils import get_missing_field_cases
 
-
-@pytest.mark.pytest
-async def test_successful_signup(client, db_connection):
-    payload = {
-        'email' : '123@gmail.com',
-        'password' : 'very_secure_password'
-    }
-
-    response = await client.post('/api/v1/auth/signup', json=payload)
-    assert response.status_code == status.HTTP_201_CREATED
-
-    data = response.json()
-    assert data['email'] == payload['email']
-    assert 'id' in data
-    assert 'password' not in data
-    assert 'hashed_password' not in data
-
-    query = select(User).where(User.email == payload['email'])
-    result = await db_connection.execute(query)
-    created_user = result.scalar_one_or_none()
-
-    assert created_user is not None
-    assert created_user.is_active is True
-    assert created_user.is_superuser is False
-
-    assert created_user.hashed_password != payload['password']
-    assert created_user.hashed_password.startswith('$argon2')
 
 @pytest.mark.asyncio
-async def test_email_duplicate(client, normal_user):
-    payload = {
-        'email' : normal_user.email,
-        'password' : 'very_secure_password'
-    }
-
-    response = await client.post('/api/v1/auth/signup', json=payload)
-    assert response.status_code == status.HTTP_409_CONFLICT
-
-    data = response.json()
-    assert 'detail' in data
-
-@pytest.mark.asyncio
-async def test_successful_login(client, normal_user):
-    payload = {
-        'username' : normal_user.email,
-        'password' : 'very_secure_password'
-    }
-    response = await client.post('/api/v1/auth/login', data=payload)
-
-    assert response.status_code == status.HTTP_200_OK
-    token_data = response.json()
-    assert 'access_token' in token_data
-    assert token_data['token_type'] == 'bearer'
-
-@pytest.mark.asyncio
-async def test_wrong_password(client, normal_user):
-    payload = {
-        'username' : normal_user.email,
-        'password' : 'very_secure_password1'
-    }
-
-    response = await client.post('/api/v1/auth/login', data=payload)
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-@pytest.mark.asyncio
-async def test_wrong_login(client, normal_user):
-    payload = {
-        'username': 'wrong.email@wrong.email',
+class TestAuthSignup:
+    BASE_URL = '/api/v1/auth/signup'
+    SIGNUP_PAYLOAD = {
+        'email': 'seliukovvladyslav@gmail.com',
         'password': 'very_secure_password'
     }
 
-    response = await client.post('/api/v1/auth/login', data=payload)
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    async def test_successful_signup(self, client, db_connection):
+        response = await client.post(self.BASE_URL, json=self.SIGNUP_PAYLOAD)
+        assert response.status_code == status.HTTP_201_CREATED
+
+        data = response.json()
+        assert data['email'] == self.SIGNUP_PAYLOAD['email']
+        assert 'id' in data
+        assert 'password' not in data
+        assert 'hashed_password' not in data
+
+        query = select(User).where(User.email == self.SIGNUP_PAYLOAD['email'])
+        result = await db_connection.execute(query)
+        created_user = result.scalar_one_or_none()
+
+        assert created_user is not None
+        assert created_user.is_active is True
+        assert created_user.is_superuser is False
+
+        assert created_user.hashed_password != self.SIGNUP_PAYLOAD['password']
+        assert created_user.hashed_password.startswith('$argon2')
+
+    async def test_email_duplicate(self, client, normal_user):
+        payload = self.SIGNUP_PAYLOAD.copy()
+        payload['email'] = normal_user.email
+
+        response = await client.post(self.BASE_URL, json=payload)
+        assert response.status_code == status.HTTP_409_CONFLICT
+
+        data = response.json()
+        assert 'detail' in data
+    async def test_short_password(self, client):
+        payload = self.SIGNUP_PAYLOAD.copy()
+        payload['password'] = '1234567'
+
+        response = await client.post(self.BASE_URL, json=payload)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    @pytest.mark.parametrize(
+        'missing_field, payload',
+        get_missing_field_cases(SIGNUP_PAYLOAD)
+    )
+    async def test_signup_missing_fields(self, client, missing_field, payload):
+        response = await client.post(self.BASE_URL, json=payload)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+@pytest.mark.asyncio
+class TestAuthLogin:
+    BASE_URL = '/api/v1/auth/login'
+    EVENT_URL = '/api/v1/events/'
+    LOGIN_PAYLOAD = {
+        'username': 'seliukovvladyslav@gmail.com',
+        'password': 'very_secure_password'
+    }
+
+    async def test_successful_login(self, client, normal_user):
+        payload = self.LOGIN_PAYLOAD.copy()
+        payload['username'] = normal_user.email
+
+        response = await client.post(self.BASE_URL, data=payload)
+
+        assert response.status_code == status.HTTP_200_OK
+        token_data = response.json()
+        assert 'access_token' in token_data
+        assert token_data['token_type'] == 'bearer'
+
+    async def test_login_inactive_user(self, client, db_connection):
+        inactive_user = UserFactory.build(is_active=False)
+
+        db_connection.add(inactive_user)
+        await db_connection.commit()
+        await db_connection.refresh(inactive_user)
+
+        inactive_payload = self.LOGIN_PAYLOAD.copy()
+        inactive_payload = {
+            'username' : inactive_user.email,
+            'password' : self.LOGIN_PAYLOAD.get('password')
+        }
+
+        response = await client.post(self.BASE_URL, data=inactive_payload)
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.json()['detail'] == 'User is inactive'
+
+    async def test_invalid_token(self, client):
+        headers ={
+            'Authorization' : 'Bearer invalid_token'
+        }
+
+        response = await client.post(self.EVENT_URL, headers=headers, json={})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    @pytest.mark.parametrize(
+        'missing_field, payload',
+        get_missing_field_cases(LOGIN_PAYLOAD)
+    )
+    async def test_login_missing_fields(self, client, missing_field, payload):
+        response = await client.post(self.BASE_URL, json=payload)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    async def test_expired_token(self, client, db_connection, user_in_db):
+        expired_token = create_access_token(
+            subject = user_in_db.id,
+            expires_delta=timedelta(minutes=-1)
+        )
+        headers = {
+            'Authorization' : f'Bearer {expired_token}'
+        }
+
+        response = await client.post(self.EVENT_URL, headers=headers, json={})
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.json()['detail'].lower() == 'could not validate credentials'

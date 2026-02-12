@@ -197,3 +197,13 @@ async def get_event_by_title(db_connection):
         return result.scalar_one_or_none()
 
     return _get_event
+
+@pytest.fixture
+async def user_in_db(db_connection):
+    user = UserFactory.build()
+
+    db_connection.add(user)
+    await db_connection.commit()
+    await db_connection.refresh(user)
+
+    return user
