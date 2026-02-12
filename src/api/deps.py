@@ -42,7 +42,7 @@ async def get_current_user(
             raise credentials_exception
 
     except jwt.ExpiredSignatureError:
-        logger.info('Auth failed: Toking expired')
+        logger.info('Auth failed: Token expired')
         raise credentials_exception
     except (jwt.PyJWTError, ValidationError) as e:
         logger.warning(f'Auth failed: Decode error : {e}')
