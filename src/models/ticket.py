@@ -9,10 +9,10 @@ class Ticket(Base):
 
     price: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    event_id: Mapped[int] = mapped_column(ForeignKey('events.id'), nullable=False)
+    event_id: Mapped[int] = mapped_column(ForeignKey('events.id', ondelete='RESTRICT'), nullable=False)
     event: Mapped['Event'] = relationship('Event', back_populates='tickets')
 
-    owner_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False)
+    owner_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='RESTRICT'), nullable=False)
     owner: Mapped['User'] = relationship('User', back_populates='tickets')
 
     __table_args__ = (

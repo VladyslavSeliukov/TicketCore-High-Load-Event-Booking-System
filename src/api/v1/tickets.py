@@ -133,7 +133,7 @@ async def delete_ticket(
             detail='Database error while deleting ticket'
         )
 
-@router.put('/{ticket_id}', response_model=TicketResponse, status_code=status.HTTP_200_OK)
+@router.patch('/{ticket_id}', response_model=TicketResponse, status_code=status.HTTP_200_OK)
 async def update_ticket(
     ticket_id: int,
     update_data:  TicketUpdate,

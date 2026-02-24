@@ -11,7 +11,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(100), index=True, unique=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    is_superuser: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
 
     tickets: Mapped[list['Ticket']] = relationship('Ticket', back_populates='owner')
