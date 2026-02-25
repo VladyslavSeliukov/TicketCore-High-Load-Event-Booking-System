@@ -20,23 +20,27 @@ from src.main import app
 from src.db.session import get_db
 from tests.factories import EventFactory, TicketFactory
 
-TEST_DB_NAME = f'{settings.POSTGRES_DB}_test'
-SYSTEM_URL = settings.DATABASE_URL.replace(f'/{settings.POSTGRES_DB}', '/postgres')
-TEST_DB_URL = settings.DATABASE_URL.replace(f'/{settings.DATABASE_URL}', f'/{TEST_DB_NAME}')
+TEST_DB_NAME = f"{settings.POSTGRES_DB}_test"
+SYSTEM_URL = settings.DATABASE_URL.replace(f"/{settings.POSTGRES_DB}", "/postgres")
+TEST_DB_URL = settings.DATABASE_URL.replace(
+    f"/{settings.DATABASE_URL}", f"/{TEST_DB_NAME}"
+)
 
 test_engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool)
 TestingSession = sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope="session")
 def event_loop():
     policy = asyncio.get_event_loop_policy()
     loop = policy.new_event_loop()
     yield loop
     loop.close()
 
-@pytest.fixture(scope='session', autouse=True)
+
+@pytest.fixture(scope="session", autouse=True)
 async def setup_test_db(event_loop):
-    sys_url_clean = SYSTEM_URL.replace('+asyncpg', '')
+    sys_url_clean = SYSTEM_URL.replace("+asyncpg", "")
 
     conn = await asyncpg.connect(sys_url_clean)
 
@@ -62,18 +66,23 @@ async def setup_test_db(event_loop):
         await conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB_NAME}"')
         await conn.close()
     except Exception as e:
-        print(f'Warning during DB drop: {e}')
+        print(f"Warning during DB drop: {e}")
+
 
 @pytest.fixture(autouse=True)
 async def clean_tables():
     async with TestingSession() as session:
-        await session.execute(text('TRUNCATE TABLE tickets, events, users RESTART IDENTITY CASCADE;'))
+        await session.execute(
+            text("TRUNCATE TABLE tickets, events, users RESTART IDENTITY CASCADE;")
+        )
         await session.commit()
+
 
 @pytest.fixture
 async def db_connection():
     async with TestingSession() as session:
         yield session
+
 
 @pytest.fixture
 async def client():
@@ -83,10 +92,13 @@ async def client():
 
     app.dependency_overrides[get_db] = override_get_db
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url='https://test') as c:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="https://test"
+    ) as c:
         yield c
 
     app.dependency_overrides.clear()
+
 
 @pytest.fixture
 async def event_factory(db_connection):
@@ -98,7 +110,9 @@ async def event_factory(db_connection):
         await db_connection.refresh(event)
 
         return event
+
     return _create
+
 
 @pytest.fixture
 async def ticket_factory(db_connection):
@@ -110,7 +124,9 @@ async def ticket_factory(db_connection):
         await db_connection.refresh(ticket)
 
         return ticket
+
     return _create
+
 
 @pytest.fixture
 async def normal_user(db_connection):
@@ -122,9 +138,10 @@ async def normal_user(db_connection):
 
     return user
 
+
 @pytest.fixture
 async def superuser(db_connection):
-    superuser  = UserFactory.build(is_superuser = True)
+    superuser = UserFactory.build(is_superuser=True)
 
     db_connection.add(superuser)
     await db_connection.commit()
@@ -132,41 +149,40 @@ async def superuser(db_connection):
 
     return superuser
 
+
 @pytest.fixture
 async def user_token_headers(client, normal_user):
-    login_data = {
-        'username' : normal_user.email,
-        'password' : 'very_secure_password'
-    }
+    login_data = {"username": normal_user.email, "password": "very_secure_password"}
 
-    response = await client.post('/api/v1/auth/login', data=login_data)
+    response = await client.post("/api/v1/auth/login", data=login_data)
     assert response.status_code == 200
-    token = response.json()['access_token']
+    token = response.json()["access_token"]
 
-    return {'Authorization' : f'Bearer {token}'}
+    return {"Authorization": f"Bearer {token}"}
+
 
 @pytest.fixture
 async def superuser_token_headers(client, superuser):
-    login_data = {
-        'username' : superuser.email,
-        'password' : 'very_secure_password'
-    }
+    login_data = {"username": superuser.email, "password": "very_secure_password"}
 
-    response = await client.post('/api/v1/auth/login', data=login_data)
+    response = await client.post("/api/v1/auth/login", data=login_data)
     assert response.status_code == 200
 
-    token = response.json()['access_token']
-    return {'Authorization' : f'Bearer {token}'}
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
 
 @pytest.fixture
 async def authorized_user(client, user_token_headers):
     client.headers.update(user_token_headers)
     return client
 
+
 @pytest.fixture
 async def authorized_superuser(client, superuser_token_headers):
     client.headers.update(superuser_token_headers)
     return client
+
 
 @pytest.fixture
 async def event_in_db(db_connection):
@@ -178,6 +194,7 @@ async def event_in_db(db_connection):
 
     return existing_event
 
+
 @pytest.fixture
 async def get_event_by_id(db_connection):
     async def _get_event(id: int) -> Event:
@@ -188,6 +205,7 @@ async def get_event_by_id(db_connection):
 
     return _get_event
 
+
 @pytest.fixture
 async def get_event_by_title(db_connection):
     async def _get_event(title: str) -> Event:
@@ -197,6 +215,7 @@ async def get_event_by_title(db_connection):
         return result.scalar_one_or_none()
 
     return _get_event
+
 
 @pytest.fixture
 async def user_in_db(db_connection):

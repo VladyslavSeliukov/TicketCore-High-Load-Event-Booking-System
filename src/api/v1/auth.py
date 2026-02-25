@@ -11,11 +11,11 @@ from src.schemas import UserResponse, UserCreate, Token
 
 router = APIRouter()
 
-@router.post('/signup', response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register_user(
-        user_in: UserCreate,
-        session: DBDep
-):
+
+@router.post(
+    "/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+)
+async def register_user(user_in: UserCreate, session: DBDep):
     query = select(User).where(User.email == user_in.email)
     result = await session.execute(query)
     existing_user = result.scalar_one_or_none()
@@ -23,14 +23,14 @@ async def register_user(
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail='User with this email already exists'
+            detail="User with this email already exists",
         )
 
     new_user = User(
         email=user_in.email,
-        hashed_password = get_password_hash(user_in.password),
-        is_active = True,
-        is_superuser = False
+        hashed_password=get_password_hash(user_in.password),
+        is_active=True,
+        is_superuser=False,
     )
 
     session.add(new_user)
@@ -39,14 +39,13 @@ async def register_user(
 
     return new_user
 
-@router.post('/login', response_model=Token)
+
+@router.post("/login", response_model=Token)
 async def login_for_access_token(
-        form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-        session: DBDep
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()], session: DBDep
 ):
     unauthorized_exception = HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            headers={'WWW-Authenticate' : 'Bearer'}
+        status_code=status.HTTP_401_UNAUTHORIZED, headers={"WWW-Authenticate": "Bearer"}
     )
 
     query = select(User).where(User.email == form_data.username)
@@ -54,19 +53,17 @@ async def login_for_access_token(
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(form_data.password, user.hashed_password):
-        unauthorized_exception.detail='Incorrect email or password'
+        unauthorized_exception.detail = "Incorrect email or password"
         raise unauthorized_exception
 
     if not user.is_active:
-        unauthorized_exception.detail = 'User is inactive'
+        unauthorized_exception.detail = "User is inactive"
         raise unauthorized_exception
 
     access_token = create_access_token(subject=user.id)
 
-    return {
-        'access_token' : access_token,
-        'token_type' : 'bearer'
-    }
+    return {"access_token": access_token, "token_type": "bearer"}
+
 
 # @router.put('/change_password', response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 # async def change_user_password(

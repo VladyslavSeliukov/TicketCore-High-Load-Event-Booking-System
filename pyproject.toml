@@ -34,8 +34,23 @@ asyncio_mode = "auto"
 
 [dependency-groups]
 dev = [
+    "black>=26.1.0",
     "httpx>=0.28.1",
     "polyfactory>=3.2.0",
+    "pre-commit>=4.5.1",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
 ]
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | \.mypy_cache
+  | migrations
+)/
+'''
