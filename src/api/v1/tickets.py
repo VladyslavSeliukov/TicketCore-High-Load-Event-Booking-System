@@ -1,14 +1,14 @@
 from fastapi import APIRouter, HTTPException, status
 from fastapi.params import Depends
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import select, update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 
 from src.api.deps import DBDep, get_current_user
-from src.schemas.ticket import TicketCreate, TicketResponse, TicketUpdate
 from src.core.config import settings
-from src.models import Event, Ticket, User
 from src.core.logger import logger
+from src.models import Event, Ticket, User
+from src.schemas.ticket import TicketCreate, TicketResponse, TicketUpdate
 
 router = APIRouter()
 
@@ -17,7 +17,6 @@ router = APIRouter()
 async def create_ticket(
     ticket: TicketCreate, db: DBDep, user: User = Depends(get_current_user)
 ):
-
     query = (
         update(Event)
         .where(Event.id == ticket.event_id)
@@ -49,7 +48,7 @@ async def create_ticket(
         await db.commit()
         await db.refresh(new_ticket)
 
-        new_ticket.event_title = event.title
+        new_ticket.event.title = event.title
 
         logger.info(f"Ticket created {new_ticket.id}")
         return new_ticket
