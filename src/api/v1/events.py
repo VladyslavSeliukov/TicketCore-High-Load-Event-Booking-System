@@ -1,6 +1,6 @@
-from fastapi import APIRouter, status, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.api.deps import DBDep, get_current_superuser
 from src.core.config import settings
@@ -111,14 +111,14 @@ async def update_event(
             status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
         )
 
-    update_data = update_data.model_dump(exclude_unset=True)
-    if not update_data:
+    update_dict = update_data.model_dump(exclude_unset=True)
+    if not update_dict:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No field provided for update",
         )
 
-    for key, value in update_data.items():
+    for key, value in update_dict.items():
         setattr(event, key, value)
 
     try:
