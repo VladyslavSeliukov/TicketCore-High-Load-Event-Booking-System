@@ -12,11 +12,10 @@ from src.core.logger import logger
 
 router = APIRouter()
 
-@router.post('/', response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post("/", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
 async def create_ticket(
-        ticket: TicketCreate,
-        db: DBDep,
-        user: User = Depends(get_current_user)
+    ticket: TicketCreate, db: DBDep, user: User = Depends(get_current_user)
 ):
 
     query = (
@@ -36,19 +35,14 @@ async def create_ticket(
 
         if not event_exists:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail='Event not found'
+                status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
             )
 
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail='Sold out. No ticket available'
+            status_code=status.HTTP_409_CONFLICT, detail="Sold out. No ticket available"
         )
 
-    new_ticket = Ticket(
-        owner_id = user.id,
-        **ticket.model_dump()
-    )
+    new_ticket = Ticket(owner_id=user.id, **ticket.model_dump())
 
     db.add(new_ticket)
     try:
@@ -57,22 +51,22 @@ async def create_ticket(
 
         new_ticket.event_title = event.title
 
-        logger.info(f'Ticket created {new_ticket.id}')
+        logger.info(f"Ticket created {new_ticket.id}")
         return new_ticket
     except SQLAlchemyError as e:
         await db.rollback()
 
-        logger.error(f'Database error occurred while creating ticket:{e}')
+        logger.error(f"Database error occurred while creating ticket:{e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Database error occurred while creating ticket'
+            detail="Database error occurred while creating ticket",
         )
 
-@router.get('/{ticket_id}', response_model=TicketResponse, status_code=status.HTTP_200_OK)
-async def get_ticket(
-        db: DBDep,
-        ticket_id: int = 0
-):
+
+@router.get(
+    "/{ticket_id}", response_model=TicketResponse, status_code=status.HTTP_200_OK
+)
+async def get_ticket(db: DBDep, ticket_id: int = 0):
     query = (
         select(Ticket)
         .options(selectinload(Ticket.event))
@@ -82,23 +76,22 @@ async def get_ticket(
     ticket = result.scalars().first()
     if not ticket:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail='Ticket not found'
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
         )
     ticket.event_title = ticket.event.title
     return ticket
 
-@router.get('/', response_model=list[TicketResponse], status_code=status.HTTP_200_OK)
+
+@router.get("/", response_model=list[TicketResponse], status_code=status.HTTP_200_OK)
 async def get_tickets(
-        db: DBDep,
-        offset: int = 0,
-        page_limit: int = settings.DEFAULT_PAGE_LIMIT
+    db: DBDep, offset: int = 0, page_limit: int = settings.DEFAULT_PAGE_LIMIT
 ):
     query = (
         select(Ticket)
         .options(selectinload(Ticket.event))
         .offset(offset)
-        .limit(page_limit))
+        .limit(page_limit)
+    )
     result = await db.execute(query)
     tickets = result.scalars().all()
 
@@ -107,38 +100,34 @@ async def get_tickets(
 
     return tickets
 
-@router.delete('/{ticket_id}', status_code=status.HTTP_204_NO_CONTENT)
-async def delete_ticket(
-    ticket_id: int,
-    db: DBDep
-):
+
+@router.delete("/{ticket_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_ticket(ticket_id: int, db: DBDep):
     ticket = await db.get(Ticket, ticket_id)
     if not ticket:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail='Ticket not found'
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
         )
 
     try:
         await db.delete(ticket)
         await db.commit()
 
-        logger.info(f'Ticket deleted {ticket_id}')
+        logger.info(f"Ticket deleted {ticket_id}")
     except SQLAlchemyError as e:
         await db.rollback()
 
-        logger.error(f'Database error occurred while deleting {ticket_id} ticket {e}')
+        logger.error(f"Database error occurred while deleting {ticket_id} ticket {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Database error while deleting ticket'
+            detail="Database error while deleting ticket",
         )
 
-@router.patch('/{ticket_id}', response_model=TicketResponse, status_code=status.HTTP_200_OK)
-async def update_ticket(
-    ticket_id: int,
-    update_data:  TicketUpdate,
-    db: DBDep
-):
+
+@router.patch(
+    "/{ticket_id}", response_model=TicketResponse, status_code=status.HTTP_200_OK
+)
+async def update_ticket(ticket_id: int, update_data: TicketUpdate, db: DBDep):
     query = (
         select(Ticket)
         .options(selectinload(Ticket.event))
@@ -149,15 +138,14 @@ async def update_ticket(
     ticket = result.scalars().first()
     if not ticket:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail='Ticket not found'
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
         )
 
     update_dict = update_data.model_dump(exclude_unset=True)
     if not update_dict:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='No field provided for update'
+            detail="No field provided for update",
         )
 
     for key, value in update_dict.items():
@@ -169,13 +157,13 @@ async def update_ticket(
 
         ticket.event_title = ticket.event.title
 
-        logger.info(f'Ticket updated {ticket_id}')
+        logger.info(f"Ticket updated {ticket_id}")
         return ticket
     except SQLAlchemyError as e:
         await db.rollback()
 
-        logger.error(f'Database error occurred while updating {ticket_id} ticket {e}')
+        logger.error(f"Database error occurred while updating {ticket_id} ticket {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Database error while updating ticket'
+            detail="Database error while updating ticket",
         )

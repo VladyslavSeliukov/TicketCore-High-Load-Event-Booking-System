@@ -23,12 +23,12 @@ class TestEventModel:
 
     async def test_default_value(self, db_connection: AsyncSession) -> None:
         event = Event(
-            title='Korn Europe Tour 2026',
+            title="Korn Europe Tour 2026",
             date=datetime.now(),
-            country='Poland',
-            city='Wroclaw',
-            street_address='Sucha 1',
-            tickets_quantity=50
+            country="Poland",
+            city="Wroclaw",
+            street_address="Sucha 1",
+            tickets_quantity=50,
             # no ticket_sold
         )
 
@@ -39,10 +39,7 @@ class TestEventModel:
         assert event.tickets_sold == 0
 
     async def test_boundary_values(self, db_connection: AsyncSession) -> None:
-        event = EventFactory.build(
-            tickets_quantity = 100,
-            tickets_sold = 100
-        )
+        event = EventFactory.build(tickets_quantity=100, tickets_sold=100)
 
         db_connection.add(event)
         await db_connection.commit()
@@ -51,10 +48,7 @@ class TestEventModel:
         assert event.tickets_quantity == event.tickets_sold
 
     async def test_tickets_sold_limit(self, db_connection: AsyncSession) -> None:
-        bad_event = EventFactory.build(
-            tickets_quantity = 100,
-            tickets_sold = 101
-        )
+        bad_event = EventFactory.build(tickets_quantity=100, tickets_sold=101)
 
         db_connection.add(bad_event)
 
@@ -63,11 +57,10 @@ class TestEventModel:
 
         await db_connection.rollback()
 
-    @pytest.mark.parametrize(
-        'invalid_quantity',
-        [0, -1, -100]
-    )
-    async def test_negative_ticket_quantity(self, db_connection: AsyncSession, invalid_quantity: int) -> None:
+    @pytest.mark.parametrize("invalid_quantity", [0, -1, -100])
+    async def test_negative_ticket_quantity(
+        self, db_connection: AsyncSession, invalid_quantity: int
+    ) -> None:
         bad_event = EventFactory.build(tickets_quantity=invalid_quantity)
 
         db_connection.add(bad_event)
@@ -77,12 +70,11 @@ class TestEventModel:
 
         await db_connection.rollback()
 
-    @pytest.mark.parametrize(
-        'field',
-        ['title', 'country', 'city', 'street_address']
-    )
-    async def test_strings_length_constraint(self, db_connection: AsyncSession, field: str) -> None:
-        kwargs = {field: 'a' * 101}
+    @pytest.mark.parametrize("field", ["title", "country", "city", "street_address"])
+    async def test_strings_length_constraint(
+        self, db_connection: AsyncSession, field: str
+    ) -> None:
+        kwargs = {field: "a" * 101}
         event = EventFactory.build(**kwargs)
 
         db_connection.add(event)
@@ -93,10 +85,12 @@ class TestEventModel:
         await db_connection.rollback()
 
     @pytest.mark.parametrize(
-        'field',
-        ['title', 'date', 'country', 'city', 'street_address', 'tickets_quantity']
+        "field",
+        ["title", "date", "country", "city", "street_address", "tickets_quantity"],
     )
-    async def test_nullable_fields(self, db_connection: AsyncSession, field: str) -> None:
+    async def test_nullable_fields(
+        self, db_connection: AsyncSession, field: str
+    ) -> None:
         kwargs = {field: None}
         event = EventFactory.build(**kwargs)
 

@@ -51,6 +51,6 @@ exclude = '''
     \.git
   | \.venv
   | \.mypy_cache
-  | alembic
+  | migrations
 )/
 '''

@@ -8,10 +8,8 @@ from utils import get_missing_field_cases
 
 
 def valid_create_payload() -> dict:
-    return {
-        'email': 'seliukovvladyslav@gmail.com',
-        'password': 'very_secure_password'
-    }
+    return {"email": "seliukovvladyslav@gmail.com", "password": "very_secure_password"}
+
 
 class TestUserCreate:
 
@@ -19,29 +17,27 @@ class TestUserCreate:
         payload = valid_create_payload()
         user = UserCreate(**payload)
 
-        assert user.email == payload['email']
-        assert user.password == payload['password']
+        assert user.email == payload["email"]
+        assert user.password == payload["password"]
 
     @pytest.mark.parametrize(
-        'missing_field, payload',
-        get_missing_field_cases(valid_create_payload())
+        "missing_field, payload", get_missing_field_cases(valid_create_payload())
     )
     def test_missing_field(self, missing_field, payload):
         with pytest.raises(ValidationError) as exc:
             UserCreate(**payload)
 
         errors = exc.value.errors()
-        if missing_field != 'all':
-            assert any(e['loc'][0] == missing_field for e in errors)
+        if missing_field != "all":
+            assert any(e["loc"][0] == missing_field for e in errors)
 
     @pytest.mark.parametrize(
-        'field, invalid_value, error_message_part',
+        "field, invalid_value, error_message_part",
         [
-            ('email', 'non-an-email', 'value is not a valid email address'),
-            ('email', '', 'value is not a valid email address'),
-
-            ('password', '', 'String should have at least 8 characters'),
-        ]
+            ("email", "non-an-email", "value is not a valid email address"),
+            ("email", "", "value is not a valid email address"),
+            ("password", "", "String should have at least 8 characters"),
+        ],
     )
     def test_invalid_cases(self, field, invalid_value, error_message_part):
         payload = valid_create_payload()
@@ -52,13 +48,15 @@ class TestUserCreate:
 
         assert error_message_part in str(exc.value)
 
+
 def valid_update_payload() -> dict:
     return {
-        'email' : 'seliukovvladyslav@gmail.com',
-        'password' : 'very_secure_password',
-        'is_active' : True,
-        'is_superuser' : False
+        "email": "seliukovvladyslav@gmail.com",
+        "password": "very_secure_password",
+        "is_active": True,
+        "is_superuser": False,
     }
+
 
 class TestUserUpdate:
 
@@ -66,40 +64,35 @@ class TestUserUpdate:
         payload = valid_update_payload()
         updated_user = UserUpdate(**payload)
 
-        assert updated_user.email == payload['email']
-        assert updated_user.is_superuser == payload['is_superuser']
-        assert updated_user.is_active == payload['is_active']
-        assert updated_user.password == payload['password']
+        assert updated_user.email == payload["email"]
+        assert updated_user.is_superuser == payload["is_superuser"]
+        assert updated_user.is_active == payload["is_active"]
+        assert updated_user.password == payload["password"]
 
     def test_missing_field(self):
         payload = valid_update_payload()
-        del payload['email']
+        del payload["email"]
         with pytest.raises(ValidationError) as exc:
             UserUpdate(**payload)
 
-        assert exc.value.errors()[0]['loc'][0] == 'email'
+        assert exc.value.errors()[0]["loc"][0] == "email"
 
     def test_partial_update(self):
-        payload = {
-            'email': 'seliukovvladyslav@gmail.com',
-            'is_active': False
-        }
+        payload = {"email": "seliukovvladyslav@gmail.com", "is_active": False}
 
         user = UserUpdate(**payload)
 
-        assert user.is_active == payload['is_active']
+        assert user.is_active == payload["is_active"]
         assert user.is_superuser is None
         assert user.password is None
 
     @pytest.mark.parametrize(
-        'field, invalid_value, error_message_part',
+        "field, invalid_value, error_message_part",
         [
-            ('password', '', 'String should have at least 8 characters'),
-
-            ('is_active', '', 'Input should be a valid boolean'),
-
-            ('is_superuser', '', 'Input should be a valid boolean'),
-        ]
+            ("password", "", "String should have at least 8 characters"),
+            ("is_active", "", "Input should be a valid boolean"),
+            ("is_superuser", "", "Input should be a valid boolean"),
+        ],
     )
     def test_invalid_cases(self, field, invalid_value, error_message_part):
         payload = valid_update_payload()
@@ -110,20 +103,22 @@ class TestUserUpdate:
 
         errors = exc.value.errors()
         for error in errors:
-            if error['loc'][0] == field:
-                assert error_message_part in error['msg']
+            if error["loc"][0] == field:
+                assert error_message_part in error["msg"]
                 return
-        pytest.fail('Error not found')
+        pytest.fail("Error not found")
+
 
 def valid_response_payload() -> dict:
     return {
-        'id': 1,
-        'email': 'seliukovvladyslav@gmail.com',
-        'is_active': True,
-        'is_superuser': False,
-        'hashed_password': '$2b$12$...',
-        'created_at': '2026-02-15T12:00:00'
+        "id": 1,
+        "email": "seliukovvladyslav@gmail.com",
+        "is_active": True,
+        "is_superuser": False,
+        "hashed_password": "$2b$12$...",
+        "created_at": "2026-02-15T12:00:00",
     }
+
 
 class TestUserResponse:
 
@@ -133,11 +128,11 @@ class TestUserResponse:
 
         result = user.model_dump()
 
-        assert result['id'] == payload['id']
-        assert result['email'] == payload['email']
+        assert result["id"] == payload["id"]
+        assert result["email"] == payload["email"]
 
-        assert 'hashed_password' not in result
-        assert 'created_at' not in result
+        assert "hashed_password" not in result
+        assert "created_at" not in result
 
     def test_response_from_orm(self):
         payload = valid_response_payload()
@@ -145,15 +140,12 @@ class TestUserResponse:
 
         user = UserResponse.model_validate(mock_orm_obj)
 
-        assert user.id == payload['id']
-        assert user.email == payload['email']
+        assert user.id == payload["id"]
+        assert user.email == payload["email"]
         assert user.is_active == True
 
     def test_response_default(self):
-        minimal_payload = {
-            'id': 1,
-            'email': 'seliukovvladyslav@gmail.com'
-        }
+        minimal_payload = {"id": 1, "email": "seliukovvladyslav@gmail.com"}
         user = UserResponse.model_validate(minimal_payload)
 
         assert user.is_active == True

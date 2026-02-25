@@ -10,9 +10,10 @@ from src.models import User, Ticket
 @pytest.mark.asyncio
 class TestUserModel:
     VALID_PAYLOAD = {
-        'email' : 'seliukovvladyslav@gmail.com',
-        'password' : 'very_secure_password'
+        "email": "seliukovvladyslav@gmail.com",
+        "password": "very_secure_password",
     }
+
     async def test_valid(self, db_connection: AsyncSession) -> None:
         user = UserFactory.build()
 
@@ -24,10 +25,10 @@ class TestUserModel:
         assert isinstance(user.id, int)
 
     async def test_default_value(self, db_connection: AsyncSession) -> None:
-        raw_password = self.VALID_PAYLOAD['password']
+        raw_password = self.VALID_PAYLOAD["password"]
         user = User(
-            email=self.VALID_PAYLOAD['email'],
-            hashed_password=get_password_hash(raw_password)
+            email=self.VALID_PAYLOAD["email"],
+            hashed_password=get_password_hash(raw_password),
         )
 
         db_connection.add(user)
@@ -41,10 +42,7 @@ class TestUserModel:
         assert verify_password(raw_password, user.hashed_password)
 
     async def test_defaults_override(self, db_connection: AsyncSession) -> None:
-        user = UserFactory.build(
-            is_active=False,
-            is_superuser=True
-        )
+        user = UserFactory.build(is_active=False, is_superuser=True)
 
         db_connection.add(user)
         await db_connection.commit()
@@ -53,11 +51,12 @@ class TestUserModel:
         assert user.is_active is False
         assert user.is_superuser is True
 
-
-    async def test_unique_constraint(self, db_connection: AsyncSession, user_in_db: User) -> None:
+    async def test_unique_constraint(
+        self, db_connection: AsyncSession, user_in_db: User
+    ) -> None:
         new_user = User(
             email=user_in_db.email,
-            hashed_password = get_password_hash(self.VALID_PAYLOAD['password'])
+            hashed_password=get_password_hash(self.VALID_PAYLOAD["password"]),
         )
 
         db_connection.add(new_user)
@@ -68,15 +67,14 @@ class TestUserModel:
         await db_connection.rollback()
 
     @pytest.mark.parametrize(
-        'field, invalid_value',
-        [
-            ('email', 'a' * 101),
-            ('hashed_password', 'a' * 256)
-        ],
-        ids=['email_too_long', 'password_too_long']
+        "field, invalid_value",
+        [("email", "a" * 101), ("hashed_password", "a" * 256)],
+        ids=["email_too_long", "password_too_long"],
     )
-    async def test_string_length_limits(self, db_connection: AsyncSession, field: str, invalid_value: str) -> None:
-        kwargs = {field : invalid_value}
+    async def test_string_length_limits(
+        self, db_connection: AsyncSession, field: str, invalid_value: str
+    ) -> None:
+        kwargs = {field: invalid_value}
         user = UserFactory.build(**kwargs)
 
         db_connection.add(user)
@@ -87,12 +85,12 @@ class TestUserModel:
         await db_connection.rollback()
 
     @pytest.mark.parametrize(
-        'field',
-        ['email', 'hashed_password'],
-        ids=['missing_email', 'missing_password']
+        "field", ["email", "hashed_password"], ids=["missing_email", "missing_password"]
     )
-    async def test_not_null_constraints(self, db_connection: AsyncSession, field: str) -> None:
-        kwargs = {field : None}
+    async def test_not_null_constraints(
+        self, db_connection: AsyncSession, field: str
+    ) -> None:
+        kwargs = {field: None}
         user = UserFactory.build(**kwargs)
 
         db_connection.add(user)
@@ -112,11 +110,7 @@ class TestUserModel:
         await db_connection.refresh(user)
         await db_connection.refresh(event)
 
-        ticket = Ticket(
-            price=1000,
-            owner_id=user.id,
-            event_id=event.id
-        )
+        ticket = Ticket(price=1000, owner_id=user.id, event_id=event.id)
 
         db_connection.add(ticket)
         await db_connection.commit()
