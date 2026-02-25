@@ -1,6 +1,13 @@
-from sqlalchemy import Integer, ForeignKey, CheckConstraint
+from typing import TYPE_CHECKING
+
+from sqlalchemy import CheckConstraint, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from src.db.base import Base
+
+if TYPE_CHECKING:
+    from src.models.event import Event
+    from src.models.user import User
 
 
 class Ticket(Base):
