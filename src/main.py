@@ -2,8 +2,8 @@ from fastapi import FastAPI, Request
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import JSONResponse
 
+from src.api.v1 import auth, events, tickets
 from src.core.config import settings
-from src.api.v1 import tickets, events, auth
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -21,7 +21,9 @@ app.include_router(
 
 
 @app.exception_handler(IntegrityError)
-async def integrity_exception_handler(request: Request, exc: IntegrityError):
+async def integrity_exception_handler(
+    request: Request, exc: IntegrityError
+) -> JSONResponse:
     return JSONResponse(
         status_code=409,
         content={"detail": "Data conflict occurred", "type": "IntegrityError"},
@@ -29,7 +31,7 @@ async def integrity_exception_handler(request: Request, exc: IntegrityError):
 
 
 @app.get("/", tags=["System"])
-async def main():
+async def main() -> dict[str, str]:
     return {
         "status": "healthy",
         "app": settings.PROJECT_NAME,

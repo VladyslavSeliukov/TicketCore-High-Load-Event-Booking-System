@@ -1,19 +1,19 @@
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
-
-from src.schemas import UserCreate, UserUpdate, UserResponse
 from utils import get_missing_field_cases
 
+from src.schemas import UserCreate, UserResponse, UserUpdate
 
-def valid_create_payload() -> dict:
+
+def valid_create_payload() -> dict[str, str]:
     return {"email": "seliukovvladyslav@gmail.com", "password": "very_secure_password"}
 
 
 class TestUserCreate:
-
-    def test_valid(self):
+    def test_valid(self) -> None:
         payload = valid_create_payload()
         user = UserCreate(**payload)
 
@@ -23,7 +23,7 @@ class TestUserCreate:
     @pytest.mark.parametrize(
         "missing_field, payload", get_missing_field_cases(valid_create_payload())
     )
-    def test_missing_field(self, missing_field, payload):
+    def test_missing_field(self, missing_field: str, payload: dict[str, Any]) -> None:
         with pytest.raises(ValidationError) as exc:
             UserCreate(**payload)
 
@@ -39,7 +39,9 @@ class TestUserCreate:
             ("password", "", "String should have at least 8 characters"),
         ],
     )
-    def test_invalid_cases(self, field, invalid_value, error_message_part):
+    def test_invalid_cases(
+        self, field: str, invalid_value: str, error_message_part: str
+    ) -> None:
         payload = valid_create_payload()
         payload[field] = invalid_value
 
@@ -49,7 +51,7 @@ class TestUserCreate:
         assert error_message_part in str(exc.value)
 
 
-def valid_update_payload() -> dict:
+def valid_update_payload() -> dict[str, str]:
     return {
         "email": "seliukovvladyslav@gmail.com",
         "password": "very_secure_password",
@@ -59,8 +61,7 @@ def valid_update_payload() -> dict:
 
 
 class TestUserUpdate:
-
-    def test_valid(self):
+    def test_valid(self) -> None:
         payload = valid_update_payload()
         updated_user = UserUpdate(**payload)
 
@@ -69,7 +70,7 @@ class TestUserUpdate:
         assert updated_user.is_active == payload["is_active"]
         assert updated_user.password == payload["password"]
 
-    def test_missing_field(self):
+    def test_missing_field(self) -> None:
         payload = valid_update_payload()
         del payload["email"]
         with pytest.raises(ValidationError) as exc:
@@ -77,7 +78,7 @@ class TestUserUpdate:
 
         assert exc.value.errors()[0]["loc"][0] == "email"
 
-    def test_partial_update(self):
+    def test_partial_update(self) -> None:
         payload = {"email": "seliukovvladyslav@gmail.com", "is_active": False}
 
         user = UserUpdate(**payload)
@@ -94,7 +95,9 @@ class TestUserUpdate:
             ("is_superuser", "", "Input should be a valid boolean"),
         ],
     )
-    def test_invalid_cases(self, field, invalid_value, error_message_part):
+    def test_invalid_cases(
+        self, field: str, invalid_value: str, error_message_part: str
+    ) -> None:
         payload = valid_update_payload()
         payload[field] = invalid_value
 
@@ -109,7 +112,7 @@ class TestUserUpdate:
         pytest.fail("Error not found")
 
 
-def valid_response_payload() -> dict:
+def valid_response_payload() -> dict[str, Any]:
     return {
         "id": 1,
         "email": "seliukovvladyslav@gmail.com",
@@ -121,8 +124,7 @@ def valid_response_payload() -> dict:
 
 
 class TestUserResponse:
-
-    def test_response_security(self):
+    def test_response_security(self) -> None:
         payload = valid_response_payload()
         user = UserResponse(**payload)
 
@@ -134,7 +136,7 @@ class TestUserResponse:
         assert "hashed_password" not in result
         assert "created_at" not in result
 
-    def test_response_from_orm(self):
+    def test_response_from_orm(self) -> None:
         payload = valid_response_payload()
         mock_orm_obj = SimpleNamespace(**payload)
 
@@ -144,7 +146,7 @@ class TestUserResponse:
         assert user.email == payload["email"]
         assert user.is_active == True
 
-    def test_response_default(self):
+    def test_response_default(self) -> None:
         minimal_payload = {"id": 1, "email": "seliukovvladyslav@gmail.com"}
         user = UserResponse.model_validate(minimal_payload)
 

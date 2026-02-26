@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EventCreate(BaseModel):
@@ -39,27 +39,27 @@ class EventResponse(EventCreate):
 
 
 class EventUpdate(EventCreate):
-    title: str = Field(
+    title: str | None = Field(
         None,
         min_length=1,
         max_length=100,
         description="Title of the event",
         examples=["Korn Europe Tour 2026"],
     )
-    date: datetime = Field(
+    date: datetime | None = Field(
         None, description="Data of the event", examples=["2026-01-01T14:15:45"]
     )
-    tickets_quantity: int = Field(
+    tickets_quantity: int | None = Field(
         None, gt=0, description="Quantity of the tickets", examples=[100]
     )
 
-    country: str = Field(
+    country: str | None = Field(
         None, min_length=1, description="Country of the event", examples=["Poland"]
     )
-    city: str = Field(
+    city: str | None = Field(
         None, min_length=1, description="City of the event", examples=["Wroclaw"]
     )
-    street_address: str = Field(
+    street_address: str | None = Field(
         None,
         min_length=1,
         description="Street address of the event",

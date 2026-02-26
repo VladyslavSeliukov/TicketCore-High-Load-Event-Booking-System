@@ -1,13 +1,14 @@
-from fastapi import APIRouter, status, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, status
 from fastapi.params import Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
-from typing import Annotated
 
 from src.api.deps import DBDep
-from src.core.security import get_password_hash, verify_password, create_access_token
+from src.core.security import create_access_token, get_password_hash, verify_password
 from src.models.user import User
-from src.schemas import UserResponse, UserCreate, Token
+from src.schemas import Token, UserCreate, UserResponse
 
 router = APIRouter()
 
@@ -15,7 +16,7 @@ router = APIRouter()
 @router.post(
     "/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
-async def register_user(user_in: UserCreate, session: DBDep):
+async def register_user(user_in: UserCreate, session: DBDep) -> User:
     query = select(User).where(User.email == user_in.email)
     result = await session.execute(query)
     existing_user = result.scalar_one_or_none()
@@ -43,7 +44,7 @@ async def register_user(user_in: UserCreate, session: DBDep):
 @router.post("/login", response_model=Token)
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()], session: DBDep
-):
+) -> dict[str, str]:
     unauthorized_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED, headers={"WWW-Authenticate": "Bearer"}
     )

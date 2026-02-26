@@ -1,12 +1,16 @@
-import pytest
 from datetime import timedelta
-from fastapi import status
-from sqlalchemy import select
+from typing import Any
 
+import pytest
 from factories import UserFactory
+from fastapi import status
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from utils import get_missing_field_cases
+
 from src.core.security import create_access_token
 from src.models import User
-from utils import get_missing_field_cases
 
 
 @pytest.mark.asyncio
@@ -17,7 +21,9 @@ class TestAuthSignup:
         "password": "very_secure_password",
     }
 
-    async def test_successful_signup(self, client, db_connection):
+    async def test_successful_signup(
+        self, client: AsyncClient, db_connection: AsyncSession
+    ) -> None:
         response = await client.post(self.BASE_URL, json=self.SIGNUP_PAYLOAD)
         assert response.status_code == status.HTTP_201_CREATED
 
@@ -38,7 +44,9 @@ class TestAuthSignup:
         assert created_user.hashed_password != self.SIGNUP_PAYLOAD["password"]
         assert created_user.hashed_password.startswith("$argon2")
 
-    async def test_email_duplicate(self, client, normal_user):
+    async def test_email_duplicate(
+        self, client: AsyncClient, normal_user: User
+    ) -> None:
         payload = self.SIGNUP_PAYLOAD.copy()
         payload["email"] = normal_user.email
 
@@ -48,7 +56,7 @@ class TestAuthSignup:
         data = response.json()
         assert "detail" in data
 
-    async def test_short_password(self, client):
+    async def test_short_password(self, client: AsyncClient) -> None:
         payload = self.SIGNUP_PAYLOAD.copy()
         payload["password"] = "1234567"
 
@@ -58,7 +66,9 @@ class TestAuthSignup:
     @pytest.mark.parametrize(
         "missing_field, payload", get_missing_field_cases(SIGNUP_PAYLOAD)
     )
-    async def test_signup_missing_fields(self, client, missing_field, payload):
+    async def test_signup_missing_fields(
+        self, client: AsyncClient, missing_field: str, payload: list[str]
+    ) -> None:
         response = await client.post(self.BASE_URL, json=payload)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
@@ -72,7 +82,9 @@ class TestAuthLogin:
         "password": "very_secure_password",
     }
 
-    async def test_successful_login(self, client, normal_user):
+    async def test_successful_login(
+        self, client: AsyncClient, normal_user: User
+    ) -> None:
         payload = self.LOGIN_PAYLOAD.copy()
         payload["username"] = normal_user.email
 
@@ -83,7 +95,9 @@ class TestAuthLogin:
         assert "access_token" in token_data
         assert token_data["token_type"] == "bearer"
 
-    async def test_login_inactive_user(self, client, db_connection):
+    async def test_login_inactive_user(
+        self, client: AsyncClient, db_connection: AsyncSession
+    ) -> None:
         inactive_user = UserFactory.build(is_active=False)
 
         db_connection.add(inactive_user)
@@ -101,7 +115,7 @@ class TestAuthLogin:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert response.json()["detail"] == "User is inactive"
 
-    async def test_invalid_token(self, client):
+    async def test_invalid_token(self, client: AsyncClient) -> None:
         headers = {"Authorization": "Bearer invalid_token"}
 
         response = await client.post(self.EVENT_URL, headers=headers, json={})
@@ -110,11 +124,15 @@ class TestAuthLogin:
     @pytest.mark.parametrize(
         "missing_field, payload", get_missing_field_cases(LOGIN_PAYLOAD)
     )
-    async def test_login_missing_fields(self, client, missing_field, payload):
+    async def test_login_missing_fields(
+        self, client: AsyncClient, missing_field: AsyncSession, payload: dict[str, Any]
+    ) -> None:
         response = await client.post(self.BASE_URL, json=payload)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
-    async def test_expired_token(self, client, db_connection, user_in_db):
+    async def test_expired_token(
+        self, client: AsyncClient, db_connection: AsyncSession, user_in_db: User
+    ) -> None:
         expired_token = create_access_token(
             subject=user_in_db.id, expires_delta=timedelta(minutes=-1)
         )

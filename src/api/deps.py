@@ -1,4 +1,4 @@
-from src.core.logger import logger
+from typing import Annotated
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -7,8 +7,8 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from typing import Annotated
 from src.core import settings
+from src.core.logger import logger
 from src.db.session import get_db
 from src.models import User
 from src.schemas.token import TokenPayload
@@ -61,7 +61,7 @@ async def get_current_user(
     return user
 
 
-async def get_current_superuser(current_user: User = Depends(get_current_user)):
+async def get_current_superuser(current_user: User = Depends(get_current_user)) -> User:
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="User doesn't have permission"

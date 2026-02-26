@@ -1,24 +1,26 @@
+from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
+from typing import Any
+
 from dotenv import load_dotenv
 
-from src.models import Event
+from src.models import Event, Ticket, User
 
 load_dotenv()
 
 import asyncio
+
 import asyncpg
 import pytest
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy import text, NullPool, select
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import NullPool, select, text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-
-from tests.factories import UserFactory
 
 from src.core.config import settings
 from src.db.base import Base
-from src.main import app
 from src.db.session import get_db
-from tests.factories import EventFactory, TicketFactory
+from src.main import app
+from tests.factories import EventFactory, TicketFactory, UserFactory
 
 TEST_DB_NAME = f"{settings.POSTGRES_DB}_test"
 SYSTEM_URL = settings.DATABASE_URL.replace(f"/{settings.POSTGRES_DB}", "/postgres")
@@ -31,7 +33,7 @@ TestingSession = sessionmaker(test_engine, class_=AsyncSession, expire_on_commit
 
 
 @pytest.fixture(scope="session")
-def event_loop():
+def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
     policy = asyncio.get_event_loop_policy()
     loop = policy.new_event_loop()
     yield loop
@@ -39,17 +41,21 @@ def event_loop():
 
 
 @pytest.fixture(scope="session", autouse=True)
-async def setup_test_db(event_loop):
+async def setup_test_db(
+    event_loop: asyncio.AbstractEventLoop,
+) -> AsyncGenerator[None, None]:
     sys_url_clean = SYSTEM_URL.replace("+asyncpg", "")
 
     conn = await asyncpg.connect(sys_url_clean)
 
-    await conn.execute(f"""
+    await conn.execute(
+        f"""
         SELECT pg_terminate_backend(pg_stat_activity.pid)
         FROM pg_stat_activity
         WHERE pg_stat_activity.datname = '{TEST_DB_NAME}'
         AND pid <> pg_backend_pid();
-    """)
+    """
+    )
 
     await conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB_NAME}"')
     await conn.execute(f'CREATE DATABASE "{TEST_DB_NAME}"')
@@ -70,7 +76,7 @@ async def setup_test_db(event_loop):
 
 
 @pytest.fixture(autouse=True)
-async def clean_tables():
+async def clean_tables() -> None:
     async with TestingSession() as session:
         await session.execute(
             text("TRUNCATE TABLE tickets, events, users RESTART IDENTITY CASCADE;")
@@ -79,14 +85,14 @@ async def clean_tables():
 
 
 @pytest.fixture
-async def db_connection():
+async def db_connection() -> AsyncGenerator[AsyncSession, None]:
     async with TestingSession() as session:
         yield session
 
 
 @pytest.fixture
-async def client():
-    async def override_get_db():
+async def client() -> AsyncGenerator[AsyncClient, None]:
+    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         async with TestingSession() as session:
             yield session
 
@@ -101,8 +107,10 @@ async def client():
 
 
 @pytest.fixture
-async def event_factory(db_connection):
-    async def _create(**kwargs):
+async def event_factory(
+    db_connection: AsyncSession,
+) -> Callable[..., Awaitable[Event]]:
+    async def _create(**kwargs: Any) -> Event:
         event = EventFactory.build(**kwargs)
 
         db_connection.add(event)
@@ -115,8 +123,10 @@ async def event_factory(db_connection):
 
 
 @pytest.fixture
-async def ticket_factory(db_connection):
-    async def _create(event_id, price, **kwargs):
+async def ticket_factory(
+    db_connection: AsyncSession,
+) -> Callable[..., Awaitable[Ticket]]:
+    async def _create(event_id: int, **kwargs: Any) -> Ticket:
         ticket = TicketFactory.build(event_id, **kwargs)
 
         db_connection.add(ticket)
@@ -129,7 +139,7 @@ async def ticket_factory(db_connection):
 
 
 @pytest.fixture
-async def normal_user(db_connection):
+async def normal_user(db_connection: AsyncSession) -> User:
     user = UserFactory.build()
 
     db_connection.add(user)
@@ -140,7 +150,7 @@ async def normal_user(db_connection):
 
 
 @pytest.fixture
-async def superuser(db_connection):
+async def superuser(db_connection: AsyncSession) -> User:
     superuser = UserFactory.build(is_superuser=True)
 
     db_connection.add(superuser)
@@ -151,7 +161,7 @@ async def superuser(db_connection):
 
 
 @pytest.fixture
-async def user_token_headers(client, normal_user):
+async def user_token_headers(client: AsyncClient, normal_user: User) -> dict[str, str]:
     login_data = {"username": normal_user.email, "password": "very_secure_password"}
 
     response = await client.post("/api/v1/auth/login", data=login_data)
@@ -162,7 +172,9 @@ async def user_token_headers(client, normal_user):
 
 
 @pytest.fixture
-async def superuser_token_headers(client, superuser):
+async def superuser_token_headers(
+    client: AsyncClient, superuser: User
+) -> dict[str, str]:
     login_data = {"username": superuser.email, "password": "very_secure_password"}
 
     response = await client.post("/api/v1/auth/login", data=login_data)
@@ -173,19 +185,23 @@ async def superuser_token_headers(client, superuser):
 
 
 @pytest.fixture
-async def authorized_user(client, user_token_headers):
+async def authorized_user(
+    client: AsyncGenerator[AsyncClient, None], user_token_headers: dict[str, str]
+) -> AsyncClient:
     client.headers.update(user_token_headers)
     return client
 
 
 @pytest.fixture
-async def authorized_superuser(client, superuser_token_headers):
+async def authorized_superuser(
+    client: AsyncGenerator[AsyncClient, None], superuser_token_headers: dict[str, str]
+) -> AsyncClient:
     client.headers.update(superuser_token_headers)
     return client
 
 
 @pytest.fixture
-async def event_in_db(db_connection):
+async def event_in_db(db_connection: AsyncSession) -> Event:
     existing_event = EventFactory.build()
 
     db_connection.add(existing_event)
@@ -196,8 +212,10 @@ async def event_in_db(db_connection):
 
 
 @pytest.fixture
-async def get_event_by_id(db_connection):
-    async def _get_event(id: int) -> Event:
+async def get_event_by_id(
+    db_connection: AsyncSession,
+) -> Callable[[int], Awaitable[Event | None]]:
+    async def _get_event(id: int) -> Event | None:
         query = select(Event).where(Event.id == id)
         result = await db_connection.execute(query)
 
@@ -207,8 +225,10 @@ async def get_event_by_id(db_connection):
 
 
 @pytest.fixture
-async def get_event_by_title(db_connection):
-    async def _get_event(title: str) -> Event:
+async def get_event_by_title(
+    db_connection: AsyncSession,
+) -> Callable[[str], Awaitable[Event | None]]:
+    async def _get_event(title: str) -> Event | None:
         query = select(Event).where(Event.title == title)
         result = await db_connection.execute(query)
 
@@ -218,7 +238,7 @@ async def get_event_by_title(db_connection):
 
 
 @pytest.fixture
-async def user_in_db(db_connection):
+async def user_in_db(db_connection: AsyncSession) -> User:
     user = UserFactory.build()
 
     db_connection.add(user)

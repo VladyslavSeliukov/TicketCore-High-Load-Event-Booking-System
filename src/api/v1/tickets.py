@@ -16,7 +16,7 @@ router = APIRouter()
 @router.post("/", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
 async def create_ticket(
     ticket: TicketCreate, db: DBDep, user: User = Depends(get_current_user)
-):
+) -> Ticket:
     query = (
         update(Event)
         .where(Event.id == ticket.event_id)
@@ -65,7 +65,7 @@ async def create_ticket(
 @router.get(
     "/{ticket_id}", response_model=TicketResponse, status_code=status.HTTP_200_OK
 )
-async def get_ticket(db: DBDep, ticket_id: int = 0):
+async def get_ticket(db: DBDep, ticket_id: int = 0) -> Ticket:
     query = (
         select(Ticket)
         .options(selectinload(Ticket.event))
@@ -84,7 +84,7 @@ async def get_ticket(db: DBDep, ticket_id: int = 0):
 @router.get("/", response_model=list[TicketResponse], status_code=status.HTTP_200_OK)
 async def get_tickets(
     db: DBDep, offset: int = 0, page_limit: int = settings.DEFAULT_PAGE_LIMIT
-):
+) -> list[Ticket]:
     query = (
         select(Ticket)
         .options(selectinload(Ticket.event))
@@ -101,7 +101,7 @@ async def get_tickets(
 
 
 @router.delete("/{ticket_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_ticket(ticket_id: int, db: DBDep):
+async def delete_ticket(ticket_id: int, db: DBDep) -> None:
     ticket = await db.get(Ticket, ticket_id)
     if not ticket:
         raise HTTPException(
@@ -126,7 +126,7 @@ async def delete_ticket(ticket_id: int, db: DBDep):
 @router.patch(
     "/{ticket_id}", response_model=TicketResponse, status_code=status.HTTP_200_OK
 )
-async def update_ticket(ticket_id: int, update_data: TicketUpdate, db: DBDep):
+async def update_ticket(ticket_id: int, update_data: TicketUpdate, db: DBDep) -> Ticket:
     query = (
         select(Ticket)
         .options(selectinload(Ticket.event))

@@ -10,11 +10,11 @@ from src.schemas import EventCreate
 class UserFactory(SQLAlchemyFactory[User]):
     __model__ = User
 
-    hashed_password = get_password_hash("very_secure_password")
+    hashed_password: str = get_password_hash("very_secure_password")
     is_superuser = False
     is_active = True
 
-    tickets = Use(list)
+    tickets: list[Ticket] = Use(list)
 
     @classmethod
     def email(cls) -> str:
@@ -24,10 +24,10 @@ class UserFactory(SQLAlchemyFactory[User]):
 class EventFactory(SQLAlchemyFactory[Event]):
     __model__ = Event
 
-    tickets_sold = 0
-    tickets_quantity = 100
+    tickets_sold: int = 0
+    tickets_quantity: int = 100
 
-    tickets = Use(list)
+    tickets: list[Ticket] = Use(list)
 
 
 class TicketFactory(SQLAlchemyFactory[Ticket]):
