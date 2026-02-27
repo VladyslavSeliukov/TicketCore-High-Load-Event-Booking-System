@@ -7,10 +7,10 @@ from fastapi import status
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from utils import get_missing_field_cases
 
 from src.core.security import create_access_token
 from src.models import User
+from tests.utils import get_missing_field_cases
 
 
 @pytest.mark.asyncio
@@ -77,7 +77,7 @@ class TestAuthSignup:
 class TestAuthLogin:
     BASE_URL = "/api/v1/auth/login"
     EVENT_URL = "/api/v1/events/"
-    LOGIN_PAYLOAD = {
+    LOGIN_PAYLOAD: dict[str, Any] = {
         "username": "seliukovvladyslav@gmail.com",
         "password": "very_secure_password",
     }

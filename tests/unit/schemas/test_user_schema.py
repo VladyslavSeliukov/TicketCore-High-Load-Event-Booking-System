@@ -3,12 +3,12 @@ from typing import Any
 
 import pytest
 from pydantic import ValidationError
-from utils import get_missing_field_cases
 
 from src.schemas import UserCreate, UserResponse, UserUpdate
+from tests.utils import get_missing_field_cases
 
 
-def valid_create_payload() -> dict[str, str]:
+def valid_create_payload() -> dict[str, Any]:
     return {"email": "seliukovvladyslav@gmail.com", "password": "very_secure_password"}
 
 
@@ -51,7 +51,7 @@ class TestUserCreate:
         assert error_message_part in str(exc.value)
 
 
-def valid_update_payload() -> dict[str, str]:
+def valid_update_payload() -> dict[str, Any]:
     return {
         "email": "seliukovvladyslav@gmail.com",
         "password": "very_secure_password",
@@ -79,7 +79,10 @@ class TestUserUpdate:
         assert exc.value.errors()[0]["loc"][0] == "email"
 
     def test_partial_update(self) -> None:
-        payload = {"email": "seliukovvladyslav@gmail.com", "is_active": False}
+        payload: dict[str, Any] = {
+            "email": "seliukovvladyslav@gmail.com",
+            "is_active": False,
+        }
 
         user = UserUpdate(**payload)
 
@@ -144,11 +147,11 @@ class TestUserResponse:
 
         assert user.id == payload["id"]
         assert user.email == payload["email"]
-        assert user.is_active == True
+        assert user.is_active is True
 
     def test_response_default(self) -> None:
         minimal_payload = {"id": 1, "email": "seliukovvladyslav@gmail.com"}
         user = UserResponse.model_validate(minimal_payload)
 
-        assert user.is_active == True
-        assert user.is_superuser == False
+        assert user.is_active is True
+        assert user.is_superuser is False

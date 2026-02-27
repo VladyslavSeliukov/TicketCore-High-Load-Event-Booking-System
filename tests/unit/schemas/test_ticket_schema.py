@@ -17,4 +17,4 @@ def test_negative_ticket_price() -> None:
 
 def test_without_ticket_params() -> None:
     with pytest.raises(ValidationError):
-        TicketCreate(event_id=1)
+        TicketCreate(event_id=1)  # type: ignore[call-arg]

@@ -1,4 +1,5 @@
 from collections.abc import Awaitable, Callable
+from typing import cast
 
 import pytest
 from factories import EventFactory, EventPayloadFactory, TicketFactory
@@ -16,7 +17,7 @@ BASE_URL = "/api/v1/events/"
 class TestEventPost:
     @pytest.fixture
     async def event_payload(self) -> EventCreate:
-        return EventPayloadFactory.build()
+        return cast(EventCreate, EventPayloadFactory.build())
 
     async def test_post_event_by_superuser(
         self,
@@ -60,7 +61,7 @@ class TestEventPost:
         client: AsyncClient,
         db_connection: AsyncSession,
         event_payload: EventCreate,
-        get_event_by_title: Event,
+        get_event_by_title: Callable[[str], Awaitable[Event | None]],
     ) -> None:
         event_dict = event_payload.model_dump(mode="json")
 
@@ -169,6 +170,7 @@ class TestEventPatch:
 
         updated_event = await get_event_by_id(orig_id)
 
+        assert updated_event is not None
         assert updated_event.title == payload.get("title")
         assert updated_event.tickets_quantity == orig_tickets_quantity
 
@@ -189,6 +191,7 @@ class TestEventPatch:
 
         db_event = await get_event_by_id(event_in_db.id)
 
+        assert db_event is not None
         assert db_event.title == orig_title
         assert db_event.title != payload.get("title")
 
@@ -207,6 +210,7 @@ class TestEventPatch:
 
         db_event = await get_event_by_id(event_in_db.id)
 
+        assert db_event is not None
         assert db_event.title == original_title
         assert db_event.title != payload.get("title")
 

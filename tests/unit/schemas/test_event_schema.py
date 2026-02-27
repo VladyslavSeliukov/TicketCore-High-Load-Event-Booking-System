@@ -3,16 +3,16 @@ from typing import Any
 
 import pytest
 from pydantic import ValidationError
-from utils import get_missing_field_cases
 
 from src.schemas import EventCreate
+from tests.utils import get_missing_field_cases
 
 
 class TestEventCreateSchemaValidation:
-    VALID_PAYLOAD = {
+    VALID_PAYLOAD: dict[str, Any] = {
         "title": "Korn Europe Tour 2026",
         "date": "2026-01-01T14:15:45",
-        "tickets_quantity": "100",
+        "tickets_quantity": 100,
         "country": "Poland",
         "city": "Wroclaw",
         "street_address": "Sucha 1",
