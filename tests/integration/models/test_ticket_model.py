@@ -1,11 +1,12 @@
 import pytest
-from sqlalchemy.exc import IntegrityError
-
 from factories import EventFactory
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.models.ticket import Ticket
 
 
-async def test_params_of_event(db_connection):
+async def test_params_of_event(db_connection: AsyncSession) -> None:
     event = EventFactory.build()
     db_connection.add(event)
     await db_connection.commit()

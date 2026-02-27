@@ -1,6 +1,4 @@
-from typing import Optional
-
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserBase(BaseModel):
@@ -31,17 +29,24 @@ class UserResponse(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class UserUpdate(UserBase):
-    password: Optional[str] = Field(
+class UserUpdate(BaseModel):
+    email: EmailStr | None = Field(
+        None,
+        min_length=5,
+        max_length=100,
+        description="User Email",
+        examples=["seliukovvladyslav@gmail.com"],
+    )
+    password: str | None = Field(
         None,
         min_length=8,
         max_length=100,
         description="User Password",
         examples=["very_secure_password"],
     )
-    is_active: Optional[bool] = Field(
+    is_active: bool | None = Field(
         None, description="Is User active?", examples=["True"]
     )
-    is_superuser: Optional[bool] = Field(
+    is_superuser: bool | None = Field(
         None, description="User is super user?", examples=["True"]
     )

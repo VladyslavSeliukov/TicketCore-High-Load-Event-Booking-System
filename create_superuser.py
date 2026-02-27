@@ -1,13 +1,13 @@
 import asyncio
 
-from src.core.security import get_password_hash
-from src.db.session import get_db, AsyncSessionLocal
 from sqlalchemy import select
 
+from src.core.security import get_password_hash
+from src.db.session import AsyncSessionLocal
 from src.models import User
 
 
-async def create_superuser(email: str, password: str):
+async def create_superuser(email: str, password: str) -> None:
     async with AsyncSessionLocal() as session:
         query = select(User).where(User.email == email)
         result = await session.execute(query)

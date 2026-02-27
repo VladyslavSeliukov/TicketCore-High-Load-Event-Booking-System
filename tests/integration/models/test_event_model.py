@@ -1,10 +1,10 @@
 from datetime import datetime
 
 import pytest
-from sqlalchemy.exc import IntegrityError, DBAPIError
+from factories import EventFactory
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from factories import EventFactory
 from src.models.event import Event
 
 

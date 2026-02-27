@@ -1,6 +1,13 @@
-from sqlalchemy import Integer, ForeignKey, CheckConstraint
+from typing import TYPE_CHECKING
+
+from sqlalchemy import CheckConstraint, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from src.db.base import Base
+
+if TYPE_CHECKING:
+    from src.models.event import Event
+    from src.models.user import User
 
 
 class Ticket(Base):
@@ -21,3 +28,7 @@ class Ticket(Base):
     owner: Mapped["User"] = relationship("User", back_populates="tickets")
 
     __table_args__ = (CheckConstraint("price > 0", name="check_ticket_price"),)
+
+    @property
+    def event_title(self) -> str:
+        return self.event.title if self.event is not None else "Unknown"

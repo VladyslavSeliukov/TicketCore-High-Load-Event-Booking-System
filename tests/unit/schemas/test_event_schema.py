@@ -1,23 +1,24 @@
 from datetime import datetime
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
 from src.schemas import EventCreate
-from utils import get_missing_field_cases
+from tests.utils import get_missing_field_cases
 
 
 class TestEventCreateSchemaValidation:
-    VALID_PAYLOAD = {
+    VALID_PAYLOAD: dict[str, Any] = {
         "title": "Korn Europe Tour 2026",
         "date": "2026-01-01T14:15:45",
-        "tickets_quantity": "100",
+        "tickets_quantity": 100,
         "country": "Poland",
         "city": "Wroclaw",
         "street_address": "Sucha 1",
     }
 
-    def test_valid(self):
+    def test_valid(self) -> None:
         event: EventCreate = EventCreate(**self.VALID_PAYLOAD)
 
         assert event.title == self.VALID_PAYLOAD["title"]
@@ -30,7 +31,9 @@ class TestEventCreateSchemaValidation:
     @pytest.mark.parametrize(
         "missing_field, payload", get_missing_field_cases(VALID_PAYLOAD)
     )
-    def test_with_missing_field(self, missing_field, payload):
+    def test_with_missing_field(
+        self, missing_field: str, payload: dict[str, Any]
+    ) -> None:
         with pytest.raises(ValidationError) as exc:
             EventCreate(**payload)
 
@@ -51,7 +54,9 @@ class TestEventCreateSchemaValidation:
             ("street_address", "", "String should have at least 1 character"),
         ],
     )
-    def test_invalid_cases(self, field, invalid_value, error_message_part):
+    def test_invalid_cases(
+        self, field: str, invalid_value: str, error_message_part: str
+    ) -> None:
         payload = self.VALID_PAYLOAD.copy()
         payload[field] = invalid_value
 

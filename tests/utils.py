@@ -1,8 +1,10 @@
+from typing import Any
+
 import pytest
 
 
-def get_missing_field_cases(payload: dict):
-    cases = []
+def get_missing_field_cases(payload: dict[str, str]) -> list[str]:
+    cases: list[Any] = []
 
     cases.append(pytest.param("all", {}, id="missing_all_fields"))
 

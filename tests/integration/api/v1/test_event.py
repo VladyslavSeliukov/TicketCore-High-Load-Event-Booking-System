@@ -1,22 +1,31 @@
-import pytest
-from fastapi import status
+from collections.abc import Awaitable, Callable
+from typing import cast
 
-from conftest import event_in_db, get_event_by_id
-from factories import EventPayloadFactory, EventFactory, TicketFactory
+import pytest
+from factories import EventFactory, EventPayloadFactory, TicketFactory
+from fastapi import status
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.models import Event
+from src.schemas import EventCreate
 
 BASE_URL = "/api/v1/events/"
 
 
 @pytest.mark.asyncio
 class TestEventPost:
-
     @pytest.fixture
-    async def event_payload(self):
-        return EventPayloadFactory.build()
+    async def event_payload(self) -> EventCreate:
+        return cast(EventCreate, EventPayloadFactory.build())
 
     async def test_post_event_by_superuser(
-        self, authorized_superuser, db_connection, event_payload, get_event_by_id
-    ):
+        self,
+        authorized_superuser: AsyncClient,
+        db_connection: AsyncSession,
+        event_payload: EventCreate,
+        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+    ) -> None:
         event_dict = event_payload.model_dump(mode="json")
 
         response = await authorized_superuser.post(BASE_URL, json=event_dict)
@@ -33,8 +42,12 @@ class TestEventPost:
         assert found_event.tickets_quantity == event_payload.tickets_quantity
 
     async def test_post_event_by_normal_user(
-        self, authorized_user, db_connection, event_payload, get_event_by_title
-    ):
+        self,
+        authorized_user: AsyncClient,
+        db_connection: AsyncSession,
+        event_payload: EventCreate,
+        get_event_by_title: Callable[[str], Awaitable[Event | None]],
+    ) -> None:
         event_dict = event_payload.model_dump(mode="json")
 
         response = await authorized_user.post(BASE_URL, json=event_dict)
@@ -44,8 +57,12 @@ class TestEventPost:
         assert db_event is None
 
     async def test_post_event_by_unauthorized_client(
-        self, client, db_connection, event_payload, get_event_by_title
-    ):
+        self,
+        client: AsyncClient,
+        db_connection: AsyncSession,
+        event_payload: EventCreate,
+        get_event_by_title: Callable[[str], Awaitable[Event | None]],
+    ) -> None:
         event_dict = event_payload.model_dump(mode="json")
 
         response = await client.post(BASE_URL, json=event_dict)
@@ -55,8 +72,8 @@ class TestEventPost:
         assert db_event is None
 
     async def test_post_event_with_negative_ticket_quantity(
-        self, authorized_superuser, event_payload
-    ):
+        self, authorized_superuser: AsyncClient, event_payload: EventCreate
+    ) -> None:
         event_dict = event_payload.model_dump(mode="json")
         event_dict["tickets_quantity"] = -10
 
@@ -71,8 +88,9 @@ class TestEventPost:
 
 @pytest.mark.asyncio
 class TestEventGet:
-
-    async def test_get_all_events(self, client, db_connection):
+    async def test_get_all_events(
+        self, client: AsyncClient, db_connection: AsyncSession
+    ) -> None:
         factory_events = EventFactory.batch(10)
 
         db_connection.add_all(factory_events)
@@ -90,7 +108,7 @@ class TestEventGet:
 
         assert returned_events == created_events
 
-    async def test_get_one_event(self, client, event_in_db):
+    async def test_get_one_event(self, client: AsyncClient, event_in_db: Event) -> None:
         response = await client.get(f"{BASE_URL}{event_in_db.id}")
 
         assert response.status_code == status.HTTP_200_OK
@@ -98,12 +116,14 @@ class TestEventGet:
         assert event["title"] == event_in_db.title
         assert event["tickets_quantity"] == event_in_db.tickets_quantity
 
-    async def test_get_non_existent_event(self, client):
+    async def test_get_non_existent_event(self, client: AsyncClient) -> None:
         response = await client.get(f"{BASE_URL}999")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    async def test_event_pagination(self, client, db_connection):
+    async def test_event_pagination(
+        self, client: AsyncClient, db_connection: AsyncSession
+    ) -> None:
         factory_events = EventFactory.batch(10)
         db_connection.add_all(factory_events)
         await db_connection.commit()
@@ -130,10 +150,13 @@ class TestEventGet:
 
 @pytest.mark.asyncio
 class TestEventPatch:
-
     async def test_patch_event_by_superuser(
-        self, authorized_superuser, db_connection, event_in_db, get_event_by_id
-    ):
+        self,
+        authorized_superuser: AsyncClient,
+        db_connection: AsyncSession,
+        event_in_db: Event,
+        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+    ) -> None:
         orig_id = event_in_db.id
         orig_tickets_quantity = event_in_db.tickets_quantity
         payload = {"title": "New Title"}
@@ -147,12 +170,17 @@ class TestEventPatch:
 
         updated_event = await get_event_by_id(orig_id)
 
+        assert updated_event is not None
         assert updated_event.title == payload.get("title")
         assert updated_event.tickets_quantity == orig_tickets_quantity
 
     async def test_patch_event_by_normal_user(
-        self, authorized_user, db_connection, event_in_db, get_event_by_id
-    ):
+        self,
+        authorized_user: AsyncClient,
+        db_connection: AsyncSession,
+        event_in_db: Event,
+        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+    ) -> None:
         orig_title = event_in_db.title
         payload = {"title": "New Title"}
 
@@ -163,12 +191,17 @@ class TestEventPatch:
 
         db_event = await get_event_by_id(event_in_db.id)
 
+        assert db_event is not None
         assert db_event.title == orig_title
         assert db_event.title != payload.get("title")
 
     async def test_patch_event_by_unauthorized_client(
-        self, client, db_connection, event_in_db, get_event_by_id
-    ):
+        self,
+        client: AsyncClient,
+        db_connection: AsyncSession,
+        event_in_db: Event,
+        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+    ) -> None:
         original_title = event_in_db.title
         payload = {"title": "New Title"}
 
@@ -177,12 +210,15 @@ class TestEventPatch:
 
         db_event = await get_event_by_id(event_in_db.id)
 
+        assert db_event is not None
         assert db_event.title == original_title
         assert db_event.title != payload.get("title")
 
     async def test_patch_non_existent_event(
-        self, authorized_superuser, get_event_by_id
-    ):
+        self,
+        authorized_superuser: AsyncClient,
+        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+    ) -> None:
         non_existent = 999
         payload = {"title": "New Title"}
 
@@ -197,10 +233,13 @@ class TestEventPatch:
 
 @pytest.mark.asyncio
 class TestEventDelete:
-
     async def test_delete_event_by_superuser(
-        self, authorized_superuser, db_connection, event_in_db, get_event_by_id
-    ):
+        self,
+        authorized_superuser: AsyncClient,
+        db_connection: AsyncSession,
+        event_in_db: Event,
+        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+    ) -> None:
         event_id = event_in_db.id
 
         response = await authorized_superuser.delete(f"{BASE_URL}{event_id}")
@@ -210,8 +249,12 @@ class TestEventDelete:
         assert db_event is None
 
     async def test_delete_event_by_normal_user(
-        self, authorized_user, db_connection, event_in_db, get_event_by_id
-    ):
+        self,
+        authorized_user: AsyncClient,
+        db_connection: AsyncSession,
+        event_in_db: Event,
+        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+    ) -> None:
         event_id = event_in_db.id
 
         response = await authorized_user.delete(f"{BASE_URL}{event_id}")
@@ -221,8 +264,12 @@ class TestEventDelete:
         assert db_event is not None
 
     async def test_delete_event_by_unauthorized_user(
-        self, client, db_connection, event_in_db, get_event_by_id
-    ):
+        self,
+        client: AsyncClient,
+        db_connection: AsyncSession,
+        event_in_db: Event,
+        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+    ) -> None:
         event_id = event_in_db.id
 
         response = await client.delete(f"{BASE_URL}{event_id}")
@@ -232,8 +279,12 @@ class TestEventDelete:
         assert db_event is not None
 
     async def test_delete_event_with_tickets(
-        self, authorized_superuser, db_connection, event_in_db, get_event_by_id
-    ):
+        self,
+        authorized_superuser: AsyncClient,
+        db_connection: AsyncSession,
+        event_in_db: Event,
+        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+    ) -> None:
         ticket = TicketFactory.build(event=event_in_db)
 
         db_connection.add(ticket)
@@ -243,8 +294,11 @@ class TestEventDelete:
         assert response.status_code == status.HTTP_409_CONFLICT
 
     async def test_delete_non_existent_event(
-        self, authorized_superuser, db_connection, get_event_by_id
-    ):
+        self,
+        authorized_superuser: AsyncClient,
+        db_connection: AsyncSession,
+        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+    ) -> None:
         non_existent = 999
 
         response = await authorized_superuser.delete(f"{BASE_URL}{non_existent}")

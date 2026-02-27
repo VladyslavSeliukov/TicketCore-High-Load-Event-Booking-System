@@ -10,24 +10,28 @@ from src.schemas import EventCreate
 class UserFactory(SQLAlchemyFactory[User]):
     __model__ = User
 
-    hashed_password = get_password_hash("very_secure_password")
+    hashed_password: str = get_password_hash("very_secure_password")
     is_superuser = False
     is_active = True
-
-    tickets = Use(list)
 
     @classmethod
     def email(cls) -> str:
         return cls.__faker__.email()
 
+    @classmethod
+    def tickets(cls) -> list[Ticket]:
+        return []
+
 
 class EventFactory(SQLAlchemyFactory[Event]):
     __model__ = Event
 
-    tickets_sold = 0
-    tickets_quantity = 100
+    tickets_sold: int = 0
+    tickets_quantity: int = 100
 
-    tickets = Use(list)
+    @classmethod
+    def tickets(cls) -> list[Ticket]:
+        return []
 
 
 class TicketFactory(SQLAlchemyFactory[Ticket]):

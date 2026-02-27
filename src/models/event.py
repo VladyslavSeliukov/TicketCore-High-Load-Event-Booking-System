@@ -1,7 +1,13 @@
-from sqlalchemy import String, Integer, DateTime, CheckConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from src.db.base import Base
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import CheckConstraint, DateTime, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from src.db.base import Base
+
+if TYPE_CHECKING:
+    from src.models.ticket import Ticket
 
 
 class Event(Base):

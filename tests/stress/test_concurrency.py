@@ -1,12 +1,15 @@
-import pytest
 import asyncio
-from datetime import datetime
 
+import pytest
 from factories import EventFactory
+from httpx import AsyncClient, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.mark.asyncio
-async def test_race_condition_overselling(client, db_connection):
+async def test_race_condition_overselling(
+    client: AsyncClient, db_connection: AsyncSession
+) -> None:
     event = EventFactory.build(tickets_quantity=5)
     db_connection.add(event)
     await db_connection.commit()
@@ -14,7 +17,7 @@ async def test_race_condition_overselling(client, db_connection):
 
     ticket_payload = {"event_id": event.id, "price": 100}
 
-    async def buy_ticket():
+    async def buy_ticket() -> Response:
         return await client.post("/api/v1/tickets/", json=ticket_payload)
 
     buy_ticket_task = [buy_ticket() for _ in range(20)]
