@@ -1,16 +1,10 @@
+import asyncio
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from typing import Any
 
-from dotenv import load_dotenv
-
-from src.models import Event, Ticket, User
-
-load_dotenv()
-
-import asyncio
-
 import asyncpg
 import pytest
+from dotenv import load_dotenv
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import NullPool, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -19,7 +13,10 @@ from src.core.config import settings
 from src.db.base import Base
 from src.db.session import get_db
 from src.main import app
+from src.models import Event, Ticket, User
 from tests.factories import EventFactory, TicketFactory, UserFactory
+
+load_dotenv()
 
 TEST_DB_NAME = f"{settings.POSTGRES_DB}_test"
 SYSTEM_URL = settings.DATABASE_URL.replace(f"/{settings.POSTGRES_DB}", "/postgres")
