@@ -66,8 +66,9 @@ async def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# @router.put('/change_password', response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-# async def change_user_password(
-#
-# ) :
-#
+# @router.put(
+#     "/change_password",
+#     response_model=UserResponse,
+#     status_code=status.HTTP_201_CREATED
+# )
+# async def change_user_password() -> User:
