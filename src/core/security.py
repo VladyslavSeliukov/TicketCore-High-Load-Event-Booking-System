@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import jwt
 from passlib.context import CryptContext
@@ -18,7 +18,7 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(
-    subject: Union[str, Any], expires_delta: Union[timedelta, None] = None
+    subject: str | Any, expires_delta: timedelta | None = None
 ) -> str:
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -32,4 +32,4 @@ def create_access_token(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
 
-    return encoded_jwt
+    return cast(str, encoded_jwt)
