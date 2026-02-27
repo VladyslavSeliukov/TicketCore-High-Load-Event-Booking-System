@@ -1,3 +1,6 @@
+from collections.abc import Sequence
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -13,7 +16,9 @@ router = APIRouter()
 
 @router.post("/", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
 async def create_event(
-    event: EventCreate, db: DBDep, admin_user: User = Depends(get_current_superuser)
+    event: EventCreate,
+    db: DBDep,
+    admin_user: Annotated[User, Depends(get_current_superuser)],
 ) -> Event:
     try:
         event_dict = event.model_dump()
@@ -49,7 +54,7 @@ async def get_event(db: DBDep, event_id: int = 0) -> Event:
 @router.get("/", response_model=list[EventResponse], status_code=status.HTTP_200_OK)
 async def get_events(
     db: DBDep, offset: int = 0, limit: int = settings.DEFAULT_PAGE_LIMIT
-) -> list[Event]:
+) -> Sequence[Event]:
     query = select(Event).offset(offset).limit(limit)
     result = await db.execute(query)
     events = result.scalars().all()
@@ -59,7 +64,9 @@ async def get_events(
 
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_event(
-    event_id: int, db: DBDep, admin_user: User = Depends(get_current_superuser)
+    event_id: int,
+    db: DBDep,
+    admin_user: Annotated[User, Depends(get_current_superuser)],
 ) -> None:
     event = await db.get(Event, event_id)
     if not event:
@@ -103,7 +110,7 @@ async def update_event(
     db: DBDep,
     event_id: int,
     update_data: EventUpdate,
-    admin_user: User = Depends(get_current_superuser),
+    admin_user: Annotated[User, Depends(get_current_superuser)],
 ) -> Event:
     event = await db.get(Event, event_id)
     if not event:

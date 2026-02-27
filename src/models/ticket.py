@@ -28,3 +28,7 @@ class Ticket(Base):
     owner: Mapped["User"] = relationship("User", back_populates="tickets")
 
     __table_args__ = (CheckConstraint("price > 0", name="check_ticket_price"),)
+
+    @property
+    def event_title(self) -> str:
+        return self.event.title if self.event is not None else "Unknown"

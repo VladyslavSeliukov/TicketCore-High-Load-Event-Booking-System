@@ -1,3 +1,6 @@
+from collections.abc import Sequence
+from typing import Annotated
+
 from fastapi import APIRouter, HTTPException, status
 from fastapi.params import Depends
 from sqlalchemy import select, update
@@ -15,7 +18,9 @@ router = APIRouter()
 
 @router.post("/", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
 async def create_ticket(
-    ticket: TicketCreate, db: DBDep, user: User = Depends(get_current_user)
+    ticket: TicketCreate,
+    db: DBDep,
+    user: Annotated[User, Depends(get_current_user)],
 ) -> Ticket:
     query = (
         update(Event)
@@ -48,7 +53,7 @@ async def create_ticket(
         await db.commit()
         await db.refresh(new_ticket)
 
-        new_ticket.event.title = event.title
+        new_ticket.event = event
 
         logger.info(f"Ticket created {new_ticket.id}")
         return new_ticket
@@ -77,14 +82,13 @@ async def get_ticket(db: DBDep, ticket_id: int = 0) -> Ticket:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
         )
-    ticket.event_title = ticket.event.title
     return ticket
 
 
 @router.get("/", response_model=list[TicketResponse], status_code=status.HTTP_200_OK)
 async def get_tickets(
     db: DBDep, offset: int = 0, page_limit: int = settings.DEFAULT_PAGE_LIMIT
-) -> list[Ticket]:
+) -> Sequence[Ticket]:
     query = (
         select(Ticket)
         .options(selectinload(Ticket.event))
@@ -93,9 +97,6 @@ async def get_tickets(
     )
     result = await db.execute(query)
     tickets = result.scalars().all()
-
-    for ticket in tickets:
-        ticket.event_title = ticket.event.title
 
     return tickets
 
@@ -153,8 +154,6 @@ async def update_ticket(ticket_id: int, update_data: TicketUpdate, db: DBDep) ->
     try:
         await db.commit()
         await db.refresh(ticket)
-
-        ticket.event_title = ticket.event.title
 
         logger.info(f"Ticket updated {ticket_id}")
         return ticket
