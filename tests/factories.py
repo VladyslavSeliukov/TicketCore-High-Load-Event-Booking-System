@@ -14,11 +14,13 @@ class UserFactory(SQLAlchemyFactory[User]):
     is_superuser = False
     is_active = True
 
-    tickets: list[Ticket] = Use(list)
-
     @classmethod
     def email(cls) -> str:
         return cls.__faker__.email()
+
+    @classmethod
+    def tickets(cls) -> list[Ticket]:
+        return []
 
 
 class EventFactory(SQLAlchemyFactory[Event]):
@@ -27,7 +29,9 @@ class EventFactory(SQLAlchemyFactory[Event]):
     tickets_sold: int = 0
     tickets_quantity: int = 100
 
-    tickets: list[Ticket] = Use(list)
+    @classmethod
+    def tickets(cls) -> list[Ticket]:
+        return []
 
 
 class TicketFactory(SQLAlchemyFactory[Ticket]):

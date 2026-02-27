@@ -13,8 +13,7 @@ import asyncpg
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import NullPool, select, text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.core.config import settings
 from src.db.base import Base
@@ -29,7 +28,7 @@ TEST_DB_URL = settings.DATABASE_URL.replace(
 )
 
 test_engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool)
-TestingSession = sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+async_session_maker = async_sessionmaker(test_engine, expire_on_commit=False)
 
 
 @pytest.fixture(scope="session")
@@ -77,7 +76,7 @@ async def setup_test_db(
 
 @pytest.fixture(autouse=True)
 async def clean_tables() -> None:
-    async with TestingSession() as session:
+    async with async_session_maker() as session:
         await session.execute(
             text("TRUNCATE TABLE tickets, events, users RESTART IDENTITY CASCADE;")
         )
@@ -86,14 +85,14 @@ async def clean_tables() -> None:
 
 @pytest.fixture
 async def db_connection() -> AsyncGenerator[AsyncSession, None]:
-    async with TestingSession() as session:
+    async with async_session_maker() as session:
         yield session
 
 
 @pytest.fixture
 async def client() -> AsyncGenerator[AsyncClient, None]:
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
-        async with TestingSession() as session:
+        async with async_session_maker() as session:
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
@@ -186,7 +185,7 @@ async def superuser_token_headers(
 
 @pytest.fixture
 async def authorized_user(
-    client: AsyncGenerator[AsyncClient, None], user_token_headers: dict[str, str]
+    client: AsyncClient, user_token_headers: dict[str, str]
 ) -> AsyncClient:
     client.headers.update(user_token_headers)
     return client
@@ -194,7 +193,7 @@ async def authorized_user(
 
 @pytest.fixture
 async def authorized_superuser(
-    client: AsyncGenerator[AsyncClient, None], superuser_token_headers: dict[str, str]
+    client: AsyncClient, superuser_token_headers: dict[str, str]
 ) -> AsyncClient:
     client.headers.update(superuser_token_headers)
     return client
