@@ -1,6 +1,4 @@
-from typing import Optional
-
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TicketCreate(BaseModel):
@@ -19,9 +17,9 @@ class TicketResponse(TicketCreate):
     model_config = ConfigDict(from_attributes=True)
 
 
-class TicketUpdate(TicketCreate):
-    event_id: Optional[int] = Field(None, description="Event Id")
-    price: Optional[int] = Field(
+class TicketUpdate(BaseModel):
+    event_id: int | None = Field(None, description="Event Id")
+    price: int | None = Field(
         None,
         gt=0,
         description="Price in cents. Each dollar has 100 cents",

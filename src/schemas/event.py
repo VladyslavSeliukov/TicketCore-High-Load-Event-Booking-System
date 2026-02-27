@@ -38,7 +38,7 @@ class EventResponse(EventCreate):
     model_config = ConfigDict(from_attributes=True)
 
 
-class EventUpdate(EventCreate):
+class EventUpdate(BaseModel):
     title: str | None = Field(
         None,
         min_length=1,
