@@ -7,6 +7,7 @@ class Settings(BaseSettings):
 
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "dev"
+    LOG_LEVEL: str = "INFO"
 
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
