@@ -64,7 +64,7 @@ async def create_ticket(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database error occurred while creating ticket",
-        )
+        ) from e
 
 
 @router.get(
@@ -121,7 +121,7 @@ async def delete_ticket(ticket_id: int, db: DBDep) -> None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database error while deleting ticket",
-        )
+        ) from e
 
 
 @router.patch(
@@ -164,4 +164,4 @@ async def update_ticket(ticket_id: int, update_data: TicketUpdate, db: DBDep) ->
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database error while updating ticket",
-        )
+        ) from e

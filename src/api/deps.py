@@ -37,18 +37,18 @@ async def get_current_user(
             logger.info('Auth failed: Token has no "sub" field')
             raise credentials_exception
 
-    except jwt.ExpiredSignatureError:
+    except jwt.ExpiredSignatureError as e:
         logger.info("Auth failed: Token expired")
-        raise credentials_exception
+        raise credentials_exception from e
     except (jwt.PyJWTError, ValidationError) as e:
         logger.warning(f"Auth failed: Decode error : {e}")
-        raise credentials_exception
+        raise credentials_exception from e
 
     try:
         user_id = int(token_data.sub)
-    except ValueError:
+    except ValueError as e:
         logger.warning(f"Auth failed: User Id is not an int: {token_data.sub}")
-        raise credentials_exception
+        raise credentials_exception from e
 
     user_query = select(User).where(User.id == user_id)
     user_result = await session.execute(user_query)

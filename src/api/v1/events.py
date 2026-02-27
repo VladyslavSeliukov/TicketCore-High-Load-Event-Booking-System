@@ -37,7 +37,7 @@ async def create_event(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database error while creating event",
-        )
+        ) from e
 
 
 @router.get("/{event_id}", response_model=EventResponse, status_code=status.HTTP_200_OK)
@@ -83,12 +83,13 @@ async def delete_event(
         await db.rollback()
 
         logger.warning(
-            f"User tried to delete the {event_id} event, but tickets for it already exist {e}"
+            f"User tried to delete the {event_id} event, "
+            f"but tickets for it already exist {e}"
         )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Cannot delete this event, because ticket for it already exist",
-        )
+        ) from e
     except SQLAlchemyError as e:
         await db.rollback()
 
@@ -98,7 +99,7 @@ async def delete_event(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Cannot delete this event",
-        )
+        ) from e
 
     return None
 
@@ -141,4 +142,4 @@ async def update_event(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database error while updating event",
-        )
+        ) from e
