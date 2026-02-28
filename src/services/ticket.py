@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from sqlalchemy import select, update
+from sqlalchemy import exists, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -30,7 +30,7 @@ class TicketService:
         event = await self.db.scalar(query)
 
         if not event:
-            check_query = select(Event.id).where(Event.id == ticket_data.event_id)
+            check_query = select(exists().where(Event.id == ticket_data.event_id))
             if not await self.db.scalar(check_query):
                 raise EventNotFoundError("Event not found")
             raise TicketsSoldOutError("Sold out. No ticket available")
