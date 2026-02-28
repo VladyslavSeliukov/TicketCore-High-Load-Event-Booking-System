@@ -12,6 +12,7 @@ from src.core.logger import logger
 from src.db.session import get_db
 from src.models import User
 from src.schemas.token import TokenPayload
+from src.services.ticket import TicketService
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
@@ -67,3 +68,10 @@ async def get_current_superuser(current_user: User = Depends(get_current_user)) 
             status_code=status.HTTP_403_FORBIDDEN, detail="User doesn't have permission"
         )
     return current_user
+
+
+async def get_ticket_service(session: DBDep) -> TicketService:
+    return TicketService(session)
+
+
+TicketServiceDep = Annotated[TicketService, Depends(get_ticket_service)]

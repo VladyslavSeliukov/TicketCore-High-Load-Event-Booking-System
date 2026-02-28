@@ -1,167 +1,53 @@
 from collections.abc import Sequence
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status
-from fastapi.params import Depends
-from sqlalchemy import select, update
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import selectinload
+from fastapi import APIRouter, status
+from fastapi.params import Depends, Query
 
-from src.api.deps import DBDep, get_current_user
+from src.api.deps import TicketServiceDep, get_current_user
 from src.core.config import settings
-from src.core.logger import logger
-from src.models import Event, Ticket, User
-from src.schemas.ticket import TicketCreate, TicketResponse, TicketUpdate
+from src.models import Ticket, User
+from src.schemas.ticket import TicketCreate, TicketResponse
 
 router = APIRouter()
 
 
 @router.post("/", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
 async def create_ticket(
+    owner: Annotated[User, Depends(get_current_user)],
     ticket: TicketCreate,
-    db: DBDep,
-    user: Annotated[User, Depends(get_current_user)],
+    ticket_service: TicketServiceDep,
 ) -> Ticket:
-    query = (
-        update(Event)
-        .where(Event.id == ticket.event_id)
-        .where(Event.tickets_quantity > Event.tickets_sold)
-        .values(tickets_sold=Event.tickets_sold + 1)
-        .returning(Event)
-    )
-    result = await db.execute(query)
-    event = result.scalar_one_or_none()
-
-    if not event:
-        check_query = select(Event.id).where(Event.id == ticket.event_id)
-        check_result = await db.execute(check_query)
-        event_exists = check_result.scalar_one_or_none()
-
-        if not event_exists:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
-            )
-
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Sold out. No ticket available"
-        )
-
-    new_ticket = Ticket(owner_id=user.id, **ticket.model_dump())
-
-    db.add(new_ticket)
-    try:
-        await db.commit()
-        await db.refresh(new_ticket)
-
-        new_ticket.event = event
-
-        logger.info(f"Ticket created {new_ticket.id}")
-        return new_ticket
-    except SQLAlchemyError as e:
-        await db.rollback()
-
-        logger.error(f"Database error occurred while creating ticket:{e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database error occurred while creating ticket",
-        ) from e
+    return await ticket_service.create(user_id=owner.id, ticket_data=ticket)
 
 
 @router.get(
     "/{ticket_id}", response_model=TicketResponse, status_code=status.HTTP_200_OK
 )
-async def get_ticket(db: DBDep, ticket_id: int = 0) -> Ticket:
-    query = (
-        select(Ticket)
-        .options(selectinload(Ticket.event))
-        .filter(Ticket.id == ticket_id)
-    )
-    result = await db.execute(query)
-    ticket = result.scalars().first()
-    if not ticket:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
-        )
-    return ticket
+async def get_ticket(
+    owner: Annotated[User, Depends(get_current_user)],
+    ticket_id: int,
+    ticket_service: TicketServiceDep,
+) -> Ticket:
+    return await ticket_service.get(owner_id=owner.id, ticket_id=ticket_id)
 
 
 @router.get("/", response_model=list[TicketResponse], status_code=status.HTTP_200_OK)
 async def get_tickets(
-    db: DBDep, offset: int = 0, page_limit: int = settings.DEFAULT_PAGE_LIMIT
+    owner: Annotated[User, Depends(get_current_user)],
+    ticket_service: TicketServiceDep,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = settings.DEFAULT_PAGE_LIMIT,
 ) -> Sequence[Ticket]:
-    query = (
-        select(Ticket)
-        .options(selectinload(Ticket.event))
-        .offset(offset)
-        .limit(page_limit)
+    return await ticket_service.get_all_for_user(
+        owner_id=owner.id, offset=offset, limit=limit
     )
-    result = await db.execute(query)
-    tickets = result.scalars().all()
-
-    return tickets
 
 
 @router.delete("/{ticket_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_ticket(ticket_id: int, db: DBDep) -> None:
-    ticket = await db.get(Ticket, ticket_id)
-    if not ticket:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
-        )
-
-    try:
-        await db.delete(ticket)
-        await db.commit()
-
-        logger.info(f"Ticket deleted {ticket_id}")
-    except SQLAlchemyError as e:
-        await db.rollback()
-
-        logger.error(f"Database error occurred while deleting {ticket_id} ticket {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database error while deleting ticket",
-        ) from e
-
-
-@router.patch(
-    "/{ticket_id}", response_model=TicketResponse, status_code=status.HTTP_200_OK
-)
-async def update_ticket(ticket_id: int, update_data: TicketUpdate, db: DBDep) -> Ticket:
-    query = (
-        select(Ticket)
-        .options(selectinload(Ticket.event))
-        .filter(Ticket.id == ticket_id)
-    )
-    result = await db.execute(query)
-
-    ticket = result.scalars().first()
-    if not ticket:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
-        )
-
-    update_dict = update_data.model_dump(exclude_unset=True)
-    if not update_dict:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No field provided for update",
-        )
-
-    for key, value in update_dict.items():
-        setattr(ticket, key, value)
-
-    try:
-        await db.commit()
-        await db.refresh(ticket)
-
-        logger.info(f"Ticket updated {ticket_id}")
-        return ticket
-    except SQLAlchemyError as e:
-        await db.rollback()
-
-        logger.error(f"Database error occurred while updating {ticket_id} ticket {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database error while updating ticket",
-        ) from e
+async def delete_ticket(
+    owner: Annotated[User, Depends(get_current_user)],
+    ticket_id: int,
+    ticket_service: TicketServiceDep,
+) -> None:
+    await ticket_service.delete(owner_id=owner.id, ticket_id=ticket_id)
