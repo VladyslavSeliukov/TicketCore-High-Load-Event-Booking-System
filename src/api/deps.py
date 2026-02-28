@@ -12,6 +12,7 @@ from src.core.logger import logger
 from src.db.session import get_db
 from src.models import User
 from src.schemas.token import TokenPayload
+from src.services.auth import AuthService
 from src.services.event import EventService
 from src.services.ticket import TicketService
 
@@ -79,5 +80,10 @@ async def get_event_service(session: DBDep) -> EventService:
     return EventService(session)
 
 
+async def get_auth_service(session: DBDep) -> AuthService:
+    return AuthService(session)
+
+
 TicketServiceDep = Annotated[TicketService, Depends(get_ticket_service)]
 EventServiceDep = Annotated[EventService, Depends(get_event_service)]
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]

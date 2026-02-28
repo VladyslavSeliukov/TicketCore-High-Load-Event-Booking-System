@@ -9,6 +9,7 @@ from src.core.exception import (
     EventNotFoundError,
     TicketNotFoundError,
     TicketsSoldOutError,
+    UserAlreadyExistsError,
 )
 
 app = FastAPI(
@@ -34,6 +35,7 @@ async def not_found_exception_handler(request: Request, exc: Exception) -> JSONR
     )
 
 
+@app.exception_handler(UserAlreadyExistsError)
 @app.exception_handler(TicketsSoldOutError)
 async def conflict_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(

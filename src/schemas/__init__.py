@@ -1,7 +1,7 @@
 from .event import EventCreate, EventResponse, EventUpdate
 from .ticket import TicketCreate, TicketResponse, TicketUpdate
 from .token import Token
-from .user import UserCreate, UserResponse, UserUpdate
+from .user import PasswordChange, UserCreate, UserResponse, UserUpdate
 
 __all__ = [
     "TicketCreate",
@@ -13,5 +13,6 @@ __all__ = [
     "UserCreate",
     "UserResponse",
     "UserUpdate",
+    "PasswordChange",
     "Token",
 ]

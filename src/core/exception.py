@@ -20,3 +20,19 @@ class TicketsSoldOutError(TicketError):
 
 class TicketNotFoundError(TicketError):
     pass
+
+
+class AuthError(Exception):
+    pass
+
+
+class UserAlreadyExistsError(AuthError):
+    pass
+
+
+class InvalidCredentialsError(AuthError):
+    pass
+
+
+class InactiveUserError(AuthError):
+    pass
