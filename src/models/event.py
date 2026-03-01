@@ -1,13 +1,13 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, Integer, String
+from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
 
 if TYPE_CHECKING:
-    from src.models.ticket import Ticket
+    from src.models.ticket_type import TicketType
 
 
 class Event(Base):
@@ -22,11 +22,7 @@ class Event(Base):
     city: Mapped[str] = mapped_column(String(100), nullable=False)
     street_address: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    tickets: Mapped[list["Ticket"]] = relationship("Ticket", back_populates="event")
-    tickets_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    tickets_sold: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-
-    __table_args__ = (
-        CheckConstraint("tickets_quantity > 0", name="check_ticket_quantity"),
-        CheckConstraint("tickets_sold <= tickets_quantity", name="check_sold_limit"),
+    # 1:N
+    ticket_types: Mapped[list["TicketType"]] = relationship(
+        "TicketType", back_populates="event", cascade="all, delete-orphan"
     )
