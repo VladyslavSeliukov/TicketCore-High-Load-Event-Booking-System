@@ -6,7 +6,10 @@ from src.api.v1 import auth, events, tickets
 from src.core import logger
 from src.core.config import settings
 from src.core.exception import (
+    EventDeleteError,
     EventNotFoundError,
+    InactiveUserError,
+    InvalidCredentialsError,
     TicketNotFoundError,
     TicketsSoldOutError,
     UserAlreadyExistsError,
@@ -27,6 +30,16 @@ app.include_router(
 )
 
 
+@app.exception_handler(InvalidCredentialsError)
+@app.exception_handler(InactiveUserError)
+async def auth_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        content={"detail": str(exc)},
+        headers={"WWW-Authentication": "Bearer"},
+    )
+
+
 @app.exception_handler(TicketNotFoundError)
 @app.exception_handler(EventNotFoundError)
 async def not_found_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -35,6 +48,7 @@ async def not_found_exception_handler(request: Request, exc: Exception) -> JSONR
     )
 
 
+@app.exception_handler(EventDeleteError)
 @app.exception_handler(UserAlreadyExistsError)
 @app.exception_handler(TicketsSoldOutError)
 async def conflict_exception_handler(request: Request, exc: Exception) -> JSONResponse:
