@@ -1,14 +1,13 @@
 from collections.abc import Awaitable, Callable
-from typing import cast
 
 import pytest
-from factories import EventFactory, EventPayloadFactory, TicketFactory
 from fastapi import status
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import Event
 from src.schemas import EventCreate
+from tests.factories import EventFactory, EventPayloadFactory, TicketFactory
 
 BASE_URL = "/api/v1/events/"
 
@@ -17,7 +16,7 @@ BASE_URL = "/api/v1/events/"
 class TestEventPost:
     @pytest.fixture
     async def event_payload(self) -> EventCreate:
-        return cast(EventCreate, EventPayloadFactory.build())
+        return EventPayloadFactory.build()
 
     async def test_post_event_by_superuser(
         self,

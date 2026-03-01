@@ -50,3 +50,13 @@ class UserUpdate(BaseModel):
     is_superuser: bool | None = Field(
         None, description="User is super user?", examples=["True"]
     )
+
+
+class PasswordChange(BaseModel):
+    old_password: str
+    new_password: str = Field(
+        min_length=8,
+        max_length=100,
+        description="New Password",
+        examples=["very_secure_password"],
+    )

@@ -2,7 +2,6 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
-from factories import UserFactory
 from fastapi import status
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -10,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.security import create_access_token
 from src.models import User
+from tests.factories import UserFactory
 from tests.utils import get_missing_field_cases
 
 

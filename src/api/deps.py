@@ -4,7 +4,6 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import ValidationError
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core import settings
@@ -12,6 +11,9 @@ from src.core.logger import logger
 from src.db.session import get_db
 from src.models import User
 from src.schemas.token import TokenPayload
+from src.services.auth import AuthService
+from src.services.event import EventService
+from src.services.ticket import TicketService
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
@@ -50,9 +52,7 @@ async def get_current_user(
         logger.warning(f"Auth failed: User Id is not an int: {token_data.sub}")
         raise credentials_exception from e
 
-    user_query = select(User).where(User.id == user_id)
-    user_result = await session.execute(user_query)
-    user = user_result.scalar_one_or_none()
+    user = await session.get(User, user_id)
 
     if not user:
         logger.warning(f"Auth failed: User {user_id} not found in DB")
@@ -67,3 +67,20 @@ async def get_current_superuser(current_user: User = Depends(get_current_user)) 
             status_code=status.HTTP_403_FORBIDDEN, detail="User doesn't have permission"
         )
     return current_user
+
+
+async def get_ticket_service(session: DBDep) -> TicketService:
+    return TicketService(session)
+
+
+async def get_event_service(session: DBDep) -> EventService:
+    return EventService(session)
+
+
+async def get_auth_service(session: DBDep) -> AuthService:
+    return AuthService(session)
+
+
+TicketServiceDep = Annotated[TicketService, Depends(get_ticket_service)]
+EventServiceDep = Annotated[EventService, Depends(get_event_service)]
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
