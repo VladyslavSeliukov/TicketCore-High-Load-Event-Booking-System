@@ -30,6 +30,22 @@ class EventFactory(SQLAlchemyFactory[Event]):
     tickets_quantity: int = 100
 
     @classmethod
+    def title(cls) -> str:
+        return cls.__faker__.catch_phrase()
+
+    @classmethod
+    def country(cls) -> str:
+        return cls.__faker__.catch_phrase()
+
+    @classmethod
+    def city(cls) -> str:
+        return cls.__faker__.catch_phrase()
+
+    @classmethod
+    def street_address(cls) -> str:
+        return cls.__faker__.catch_phrase()
+
+    @classmethod
     def tickets(cls) -> list[Ticket]:
         return []
 

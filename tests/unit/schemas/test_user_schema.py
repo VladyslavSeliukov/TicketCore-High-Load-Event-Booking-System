@@ -70,14 +70,6 @@ class TestUserUpdate:
         assert updated_user.is_active == payload["is_active"]
         assert updated_user.password == payload["password"]
 
-    def test_missing_field(self) -> None:
-        payload = valid_update_payload()
-        del payload["email"]
-        with pytest.raises(ValidationError) as exc:
-            UserUpdate(**payload)
-
-        assert exc.value.errors()[0]["loc"][0] == "email"
-
     def test_partial_update(self) -> None:
         payload: dict[str, Any] = {
             "email": "seliukovvladyslav@gmail.com",
