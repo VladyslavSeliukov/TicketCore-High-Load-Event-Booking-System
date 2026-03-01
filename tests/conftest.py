@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
+from pathlib import Path
 from typing import Any
 
 import asyncpg
@@ -9,12 +10,16 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import NullPool, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from src.core.config import settings
-from src.db.base import Base
-from src.db.session import get_db
-from src.main import app
-from src.models import Event, Ticket, User
-from tests.factories import EventFactory, TicketFactory, UserFactory
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / ".env")
+
+from src.core.config import settings  # noqa: E402
+from src.db.base import Base  # noqa: E402
+from src.db.session import get_db  # noqa: E402
+from src.main import app  # noqa: E402
+from src.models import Event, Ticket, User  # noqa: E402
+from tests.factories import EventFactory, TicketFactory, UserFactory  # noqa: E402
 
 load_dotenv()
 

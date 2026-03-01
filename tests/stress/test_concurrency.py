@@ -1,9 +1,10 @@
 import asyncio
 
 import pytest
-from factories import EventFactory
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from tests.factories import EventFactory
 
 
 @pytest.mark.asyncio

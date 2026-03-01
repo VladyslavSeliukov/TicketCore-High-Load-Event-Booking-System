@@ -1,10 +1,10 @@
 import pytest
-from factories import EventFactory, UserFactory
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.security import get_password_hash, verify_password
 from src.models import Ticket, User
+from tests.factories import EventFactory, UserFactory
 
 
 @pytest.mark.asyncio
