@@ -1,5 +1,4 @@
 from collections.abc import Awaitable, Callable
-from typing import cast
 
 import pytest
 from fastapi import status
@@ -17,7 +16,7 @@ BASE_URL = "/api/v1/events/"
 class TestEventPost:
     @pytest.fixture
     async def event_payload(self) -> EventCreate:
-        return cast(EventCreate, EventPayloadFactory.build())
+        return EventPayloadFactory.build()
 
     async def test_post_event_by_superuser(
         self,
