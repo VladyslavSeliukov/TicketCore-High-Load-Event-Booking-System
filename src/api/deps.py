@@ -14,6 +14,7 @@ from src.schemas.token import TokenPayload
 from src.services.auth import AuthService
 from src.services.event import EventService
 from src.services.ticket import TicketService
+from src.services.ticket_type import TicketTypeService
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
@@ -81,6 +82,11 @@ async def get_auth_service(session: DBDep) -> AuthService:
     return AuthService(session)
 
 
+async def get_ticket_type_service(session: DBDep) -> TicketTypeService:
+    return TicketTypeService(session)
+
+
 TicketServiceDep = Annotated[TicketService, Depends(get_ticket_service)]
 EventServiceDep = Annotated[EventService, Depends(get_event_service)]
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+TicketTypeServiceDep = Annotated[TicketTypeService, Depends(get_ticket_type_service)]

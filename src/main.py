@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import JSONResponse
 
-from src.api.v1 import auth, events, tickets
+from src.api.v1 import auth, events, ticket_type, tickets
 from src.core import logger
 from src.core.config import settings
 from src.core.exception import (
@@ -29,6 +29,11 @@ app.include_router(
 )
 app.include_router(
     events.router, prefix=f"{settings.API_V1_STR}/events", tags=["Events"]
+)
+app.include_router(
+    ticket_type.router,
+    prefix=f"{settings.API_V1_STR}/ticket_type",
+    tags=["Ticket Type"],
 )
 
 
