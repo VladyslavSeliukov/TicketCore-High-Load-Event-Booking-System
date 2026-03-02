@@ -48,13 +48,16 @@ class TicketService:
                 .where(Ticket.id == new_ticket.id)
             )
 
-            new_ticket = await self.db.scalar(query_load)
+            loaded_ticket = await self.db.scalar(query_load)
 
-            logger.info(f"Ticket created: {new_ticket.id}")
+            if not loaded_ticket:
+                raise SQLAlchemyError("Failed to load ticket after creation")
+
+            logger.info(f"Ticket created: {loaded_ticket.id}")
         except SQLAlchemyError:
             await self.db.rollback()
             raise
-        return new_ticket
+        return loaded_ticket
 
     async def get(self, owner_id: int, ticket_id: int) -> Ticket:
         query = (
