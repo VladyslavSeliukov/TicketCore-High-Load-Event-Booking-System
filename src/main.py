@@ -12,6 +12,8 @@ from src.core.exception import (
     InvalidCredentialsError,
     TicketNotFoundError,
     TicketsSoldOutError,
+    TicketTypeDeleteError,
+    TicketTypeNotFoundError,
     UserAlreadyExistsError,
 )
 
@@ -40,6 +42,7 @@ async def auth_exception_handler(request: Request, exc: Exception) -> JSONRespon
     )
 
 
+@app.exception_handler(TicketTypeNotFoundError)
 @app.exception_handler(TicketNotFoundError)
 @app.exception_handler(EventNotFoundError)
 async def not_found_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -48,6 +51,7 @@ async def not_found_exception_handler(request: Request, exc: Exception) -> JSONR
     )
 
 
+@app.exception_handler(TicketTypeDeleteError)
 @app.exception_handler(EventDeleteError)
 @app.exception_handler(UserAlreadyExistsError)
 @app.exception_handler(TicketsSoldOutError)
