@@ -6,6 +6,7 @@ from src.api.v1 import auth, events, ticket_type, tickets
 from src.core import logger
 from src.core.config import settings
 from src.core.exception import (
+    EmptyUpdateDataError,
     EventDeleteError,
     EventNotFoundError,
     InactiveUserError,
@@ -72,6 +73,15 @@ async def internal_exception_handler(request: Request, exc: Exception) -> JSONRe
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Internal server error"},
+    )
+
+
+@app.exception_handler(EmptyUpdateDataError)
+async def empty_update_data_exception_handler(
+    request: Request, exc: Exception
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(exc)}
     )
 
 

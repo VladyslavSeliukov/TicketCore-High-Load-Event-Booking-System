@@ -48,3 +48,7 @@ class TicketTypeNotFoundError(TicketTypeError):
 
 class TicketTypeDeleteError(TicketTypeError):
     pass
+
+
+class EmptyUpdateDataError(Exception):
+    pass
