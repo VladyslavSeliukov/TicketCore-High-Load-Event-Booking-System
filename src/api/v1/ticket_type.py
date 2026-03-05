@@ -11,6 +11,7 @@ from src.models import User
 from src.models.ticket_type import TicketType
 from src.schemas.ticket_type import (
     TicketTypeCreate,
+    TicketTypeDetailResponse,
     TicketTypeResponse,
     TicketTypeUpdate,
 )
@@ -31,7 +32,7 @@ async def ticket_type_create(
 
 @router.get(
     "/{ticket_type_id}",
-    response_model=TicketTypeResponse,
+    response_model=TicketTypeDetailResponse,
     status_code=status.HTTP_200_OK,
 )
 async def ticket_type_get(
@@ -43,7 +44,7 @@ async def ticket_type_get(
 
 @router.get(
     "/event/{event_id}",
-    response_model=list[TicketTypeResponse],
+    response_model=list[TicketTypeDetailResponse],
     status_code=status.HTTP_200_OK,
 )
 async def ticket_type_get_all_for_event(
