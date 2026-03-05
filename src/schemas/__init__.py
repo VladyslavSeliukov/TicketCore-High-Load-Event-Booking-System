@@ -1,4 +1,5 @@
 from .event import EventCreate, EventResponse, EventUpdate
+from .idempotency import IdempotencyRecord
 from .ticket import TicketCreate, TicketResponse
 from .token import Token
 from .user import PasswordChange, UserCreate, UserResponse, UserUpdate
@@ -14,4 +15,5 @@ __all__ = [
     "UserUpdate",
     "PasswordChange",
     "Token",
+    "IdempotencyRecord",
 ]

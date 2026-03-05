@@ -1,24 +1,37 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated, Any
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import ValidationError
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core import settings
 from src.core.logger import logger
+from src.db.redis import get_redis
 from src.db.session import get_db
 from src.models import User
 from src.schemas.token import TokenPayload
 from src.services.auth import AuthService
 from src.services.event import EventService
+from src.services.idempotency import IdempotencyService
 from src.services.ticket import TicketService
 from src.services.ticket_type import TicketTypeService
+
+if TYPE_CHECKING:
+    RedisClient = Redis[Any]
+else:
+    RedisClient = Redis
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
 DBDep = Annotated[AsyncSession, Depends(get_db)]
+IdempotencyHeader = Annotated[
+    str | None, Header(alias="Idempotency-Key", min_length=10, max_length=100)
+]
 
 
 async def get_current_user(
@@ -86,7 +99,14 @@ async def get_ticket_type_service(session: DBDep) -> TicketTypeService:
     return TicketTypeService(session)
 
 
+async def get_idempotency_service(
+    redis: RedisClient = Depends(get_redis),
+) -> IdempotencyService:
+    return IdempotencyService(redis)
+
+
 TicketServiceDep = Annotated[TicketService, Depends(get_ticket_service)]
 EventServiceDep = Annotated[EventService, Depends(get_event_service)]
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 TicketTypeServiceDep = Annotated[TicketTypeService, Depends(get_ticket_type_service)]
+IdempotencyServiceDep = Annotated[IdempotencyService, Depends(get_idempotency_service)]

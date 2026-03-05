@@ -10,6 +10,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import NullPool, delete, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from src.db.redis import close_redis_pool, init_redis_pool
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
@@ -103,6 +105,13 @@ async def db_connection() -> AsyncGenerator[AsyncSession, None]:
     await session.close()
     await transaction.rollback()
     await connection.close()
+
+
+@pytest.fixture(autouse=True)
+async def setup_redis_for_tests() -> AsyncGenerator[None, None]:
+    await init_redis_pool()
+    yield
+    await close_redis_pool()
 
 
 @pytest.fixture
@@ -278,14 +287,21 @@ async def test_session_factory(
 async def stress_client(
     client: AsyncClient,
     test_session_factory: async_sessionmaker[AsyncSession],
-) -> AsyncClient:
+) -> AsyncGenerator[AsyncClient, None]:
     async def override_get_db_concurrent() -> AsyncGenerator[AsyncSession, None]:
         async with test_session_factory() as session:
             yield session
 
+    original_override = app.dependency_overrides.get(get_db)
     app.dependency_overrides[get_db] = override_get_db_concurrent
 
-    return client
+    try:
+        yield client
+    finally:
+        if original_override:
+            app.dependency_overrides[get_db] = original_override
+        else:
+            app.dependency_overrides.pop(get_db, None)
 
 
 @pytest.fixture
