@@ -1,19 +1,13 @@
 from collections.abc import AsyncGenerator
-from pathlib import Path
 
 import pytest
-from dotenv import load_dotenv
 from httpx import AsyncClient
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-load_dotenv(BASE_DIR / ".env")
-
-from src.db.session import get_db  # noqa: E402
-from src.main import app  # noqa: E402
-from src.models import Event, Ticket, TicketType  # noqa: E402
+from src.db.session import get_db
+from src.main import app
+from src.models import Event, Ticket, TicketType
 
 
 @pytest.fixture

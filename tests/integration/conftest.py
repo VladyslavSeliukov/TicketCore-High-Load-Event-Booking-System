@@ -4,8 +4,8 @@ from typing import Any
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import Event, Ticket, TicketType, User  # noqa: E402
-from tests.factories import (  #
+from src.models import Event, Ticket, TicketType, User
+from tests.factories import (
     EventFactory,
     TicketFactory,
     TicketTypeFactory,
