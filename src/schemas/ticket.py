@@ -10,12 +10,10 @@ class TicketCreate(TicketBase):
 
 
 class TicketResponse(TicketBase):
-    id: int
-    event_title: str
-
     model_config = ConfigDict(from_attributes=True)
 
     id: PositiveInt
 
-class TicketUpdate(BaseModel):
-    ticket_type_id: int | None = Field(None, description="Ticket type Id")
+
+class TicketDetailResponse(TicketResponse):
+    event_title: str
