@@ -24,5 +24,5 @@ class Event(Base):
 
     # 1:N
     ticket_types: Mapped[list["TicketType"]] = relationship(
-        "TicketType", back_populates="event", cascade="all, delete-orphan"
+        "TicketType", back_populates="event"
     )
