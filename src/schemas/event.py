@@ -2,8 +2,10 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.schemas.ticket_type import TicketTypeResponse
 
-class EventCreate(BaseModel):
+
+class EventBase(BaseModel):
     title: str = Field(
         ...,
         min_length=1,
@@ -13,9 +15,6 @@ class EventCreate(BaseModel):
     )
     date: datetime = Field(
         ..., description="Date and time of the event", examples=["2026-01-01T14:15:45"]
-    )
-    tickets_quantity: int = Field(
-        ..., gt=0, description="Quantity of the tickets", examples=[100]
     )
 
     country: str = Field(
@@ -32,9 +31,14 @@ class EventCreate(BaseModel):
     )
 
 
-class EventResponse(EventCreate):
+class EventCreate(EventBase):
+    pass
+
+
+class EventResponse(EventBase):
     id: int
-    tickets_sold: int
+    ticket_types: list[TicketTypeResponse]
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -48,9 +52,6 @@ class EventUpdate(BaseModel):
     )
     date: datetime | None = Field(
         None, description="Data of the event", examples=["2026-01-01T14:15:45"]
-    )
-    tickets_quantity: int | None = Field(
-        None, gt=0, description="Quantity of the tickets", examples=[100]
     )
 
     country: str | None = Field(

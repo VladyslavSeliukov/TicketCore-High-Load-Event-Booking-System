@@ -36,3 +36,19 @@ class InvalidCredentialsError(AuthError):
 
 class InactiveUserError(AuthError):
     pass
+
+
+class TicketTypeError(Exception):
+    pass
+
+
+class TicketTypeNotFoundError(TicketTypeError):
+    pass
+
+
+class TicketTypeDeleteError(TicketTypeError):
+    pass
+
+
+class EmptyUpdateDataError(Exception):
+    pass

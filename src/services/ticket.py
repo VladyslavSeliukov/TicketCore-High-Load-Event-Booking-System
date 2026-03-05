@@ -7,52 +7,62 @@ from sqlalchemy.orm import selectinload
 
 from src.core import logger
 from src.core.exception import (
-    EventNotFoundError,
     TicketNotFoundError,
     TicketsSoldOutError,
+    TicketTypeNotFoundError,
 )
-from src.models import Event, Ticket
+from src.models import Ticket, TicketType
 from src.schemas import TicketCreate
 
 
 class TicketService:
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         self.db = session
 
     async def create(self, user_id: int, ticket_data: TicketCreate) -> Ticket:
-        query = (
-            update(Event)
-            .where(Event.id == ticket_data.event_id)
-            .where(Event.tickets_quantity > Event.tickets_sold)
-            .values(tickets_sold=Event.tickets_sold + 1)
-            .returning(Event)
+        ticket_type_query = (
+            update(TicketType)
+            .where(TicketType.id == ticket_data.ticket_type_id)
+            .where(TicketType.tickets_quantity > TicketType.tickets_sold)
+            .values(tickets_sold=TicketType.tickets_sold + 1)
+            .returning(TicketType)
         )
-        event = await self.db.scalar(query)
+        ticket_type = await self.db.scalar(ticket_type_query)
 
-        if not event:
-            check_query = select(exists().where(Event.id == ticket_data.event_id))
+        if not ticket_type:
+            check_query = select(
+                exists().where(TicketType.id == ticket_data.ticket_type_id)
+            )
             if not await self.db.scalar(check_query):
-                raise EventNotFoundError("Event not found")
-            raise TicketsSoldOutError("Sold out. No ticket available")
+                raise TicketTypeNotFoundError("Ticket type not found")
+            raise TicketsSoldOutError("Sold out. No tickets of this type available")
 
         new_ticket = Ticket(owner_id=user_id, **ticket_data.model_dump())
         self.db.add(new_ticket)
         try:
             await self.db.commit()
-            await self.db.refresh(new_ticket)
-            new_ticket.event = event
 
-            logger.info(f"Ticket created {new_ticket.id}")
+            query_load = (
+                select(Ticket)
+                .options(selectinload(Ticket.ticket_type).joinedload(TicketType.event))
+                .where(Ticket.id == new_ticket.id)
+            )
+
+            loaded_ticket = await self.db.scalar(query_load)
+
+            if not loaded_ticket:
+                raise SQLAlchemyError("Failed to load ticket after creation")
+
+            logger.info(f"Ticket created: {loaded_ticket.id}")
         except SQLAlchemyError:
             await self.db.rollback()
             raise
-
-        return new_ticket
+        return loaded_ticket
 
     async def get(self, owner_id: int, ticket_id: int) -> Ticket:
         query = (
             select(Ticket)
-            .options(selectinload(Ticket.event))
+            .options(selectinload(Ticket.ticket_type).joinedload(TicketType.event))
             .where(Ticket.id == ticket_id)
             .where(Ticket.owner_id == owner_id)
         )
@@ -67,7 +77,7 @@ class TicketService:
     ) -> Sequence[Ticket]:
         query = (
             select(Ticket)
-            .options(selectinload(Ticket.event))
+            .options(selectinload(Ticket.ticket_type).joinedload(TicketType.event))
             .where(Ticket.owner_id == owner_id)
             .offset(offset)
             .limit(limit)
@@ -80,9 +90,9 @@ class TicketService:
 
         try:
             update_query = (
-                update(Event)
-                .where(Event.id == ticket.event_id)
-                .values(tickets_sold=Event.tickets_sold - 1)
+                update(TicketType)
+                .where(TicketType.id == ticket.ticket_type_id)
+                .values(tickets_sold=TicketType.tickets_sold - 1)
             )
             await self.db.execute(update_query)
 

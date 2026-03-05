@@ -2,16 +2,19 @@ from fastapi import FastAPI, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import JSONResponse
 
-from src.api.v1 import auth, events, tickets
+from src.api.v1 import auth, events, ticket_type, tickets
 from src.core import logger
 from src.core.config import settings
 from src.core.exception import (
+    EmptyUpdateDataError,
     EventDeleteError,
     EventNotFoundError,
     InactiveUserError,
     InvalidCredentialsError,
     TicketNotFoundError,
     TicketsSoldOutError,
+    TicketTypeDeleteError,
+    TicketTypeNotFoundError,
     UserAlreadyExistsError,
 )
 
@@ -28,6 +31,11 @@ app.include_router(
 app.include_router(
     events.router, prefix=f"{settings.API_V1_STR}/events", tags=["Events"]
 )
+app.include_router(
+    ticket_type.router,
+    prefix=f"{settings.API_V1_STR}/ticket_type",
+    tags=["Ticket Type"],
+)
 
 
 @app.exception_handler(InvalidCredentialsError)
@@ -40,6 +48,7 @@ async def auth_exception_handler(request: Request, exc: Exception) -> JSONRespon
     )
 
 
+@app.exception_handler(TicketTypeNotFoundError)
 @app.exception_handler(TicketNotFoundError)
 @app.exception_handler(EventNotFoundError)
 async def not_found_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -48,6 +57,7 @@ async def not_found_exception_handler(request: Request, exc: Exception) -> JSONR
     )
 
 
+@app.exception_handler(TicketTypeDeleteError)
 @app.exception_handler(EventDeleteError)
 @app.exception_handler(UserAlreadyExistsError)
 @app.exception_handler(TicketsSoldOutError)
@@ -63,6 +73,15 @@ async def internal_exception_handler(request: Request, exc: Exception) -> JSONRe
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Internal server error"},
+    )
+
+
+@app.exception_handler(EmptyUpdateDataError)
+async def empty_update_data_exception_handler(
+    request: Request, exc: Exception
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(exc)}
     )
 
 

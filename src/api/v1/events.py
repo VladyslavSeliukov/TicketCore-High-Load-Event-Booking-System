@@ -1,11 +1,12 @@
 from collections.abc import Sequence
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from fastapi.params import Query
 
 from src.api.deps import EventServiceDep, get_current_superuser
 from src.core.config import settings
+from src.core.exception import EmptyUpdateDataError
 from src.models import Event, User
 from src.schemas.event import EventCreate, EventResponse, EventUpdate
 
@@ -54,8 +55,5 @@ async def update_event(
     admin_user: Annotated[User, Depends(get_current_superuser)],
 ) -> Event:
     if not update_data.model_dump(exclude_unset=True):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No field provided for update",
-        )
+        raise EmptyUpdateDataError("No field provided for update")
     return await event_service.update(event_id=event_id, update_data=update_data)

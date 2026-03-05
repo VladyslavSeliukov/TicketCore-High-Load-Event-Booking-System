@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.core import logger
 from src.core.exception import EventDeleteError, EventNotFoundError
@@ -11,7 +12,7 @@ from src.schemas import EventCreate, EventUpdate
 
 
 class EventService:
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         self.db = session
 
     async def create(self, event_data: EventCreate) -> Event:
@@ -29,13 +30,23 @@ class EventService:
         return new_event
 
     async def get(self, event_id: int) -> Event:
-        event = await self.db.get(Event, event_id)
+        query = (
+            select(Event)
+            .options(selectinload(Event.ticket_types))
+            .where(Event.id == event_id)
+        )
+        event = await self.db.scalar(query)
         if not event:
             raise EventNotFoundError("Event not found")
         return event
 
     async def get_all(self, offset: int, limit: int) -> Sequence[Event]:
-        query = select(Event).offset(offset).limit(limit)
+        query = (
+            select(Event)
+            .options(selectinload(Event.ticket_types))
+            .offset(offset)
+            .limit(limit)
+        )
         result = await self.db.scalars(query)
         return result.all()
 
