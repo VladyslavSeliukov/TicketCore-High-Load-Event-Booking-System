@@ -5,7 +5,10 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core import logger
-from src.core.exception import TicketTypeDeleteError, TicketTypeNotFoundError
+from src.core.exception import (
+    TicketTypeDeleteError,
+    TicketTypeNotFoundError,
+)
 from src.models import TicketType
 from src.schemas.ticket_type import TicketTypeCreate, TicketTypeUpdate
 
@@ -67,6 +70,9 @@ class TicketTypeService:
             raise TicketTypeDeleteError(
                 "Cannot delete ticket type with existing tickets"
             ) from e
+        except SQLAlchemyError:
+            await self.db.rollback()
+            raise
 
     async def update(
         self, ticket_type_id: int, update_data: TicketTypeUpdate
