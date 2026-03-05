@@ -1,5 +1,11 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    PositiveInt,
     field_validator,
+)
 
 
 class UserBase(BaseModel):
@@ -33,7 +39,7 @@ class UserCreate(UserBase):
 
 
 class UserResponse(UserBase):
-    id: int
+    id: PositiveInt
     is_superuser: bool = False
 
     model_config = ConfigDict(from_attributes=True)
