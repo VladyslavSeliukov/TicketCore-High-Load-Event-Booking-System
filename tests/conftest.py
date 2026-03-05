@@ -1,25 +1,31 @@
 import asyncio
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import asyncpg
 import pytest
 from dotenv import load_dotenv
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import NullPool, select, text
+from sqlalchemy import NullPool, delete, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
 
+from src.api.deps import get_current_user  # noqa: E402
 from src.core.config import settings  # noqa: E402
 from src.db.base import Base  # noqa: E402
 from src.db.session import get_db  # noqa: E402
 from src.main import app  # noqa: E402
-from src.models import Event, Ticket, User  # noqa: E402
-from tests.factories import EventFactory, TicketFactory, UserFactory  # noqa: E402
+from src.models import Event, Ticket, TicketType, User  # noqa: E402
+from tests.factories import (  # noqa: E402
+    EventFactory,
+    TicketFactory,
+    TicketTypeFactory,
+    UserFactory,
+)
 
 load_dotenv()
 
@@ -87,24 +93,32 @@ async def clean_tables() -> None:
 
 @pytest.fixture
 async def db_connection() -> AsyncGenerator[AsyncSession, None]:
-    async with async_session_maker() as session:
-        yield session
+    connection = await test_engine.connect()
+    transaction = await connection.begin()
+
+    session = AsyncSession(bind=connection, expire_on_commit=False)
+
+    yield session
+
+    await session.close()
+    await transaction.rollback()
+    await connection.close()
 
 
 @pytest.fixture
-async def client() -> AsyncGenerator[AsyncClient, None]:
+async def client(db_connection: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
-        async with async_session_maker() as session:
-            yield session
+        yield db_connection
 
     app.dependency_overrides[get_db] = override_get_db
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="https://test"
-    ) as c:
-        yield c
-
-    app.dependency_overrides.clear()
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="https://test"
+        ) as c:
+            yield c
+    finally:
+        app.dependency_overrides.pop(get_db, None)
 
 
 @pytest.fixture
@@ -202,6 +216,17 @@ async def authorized_superuser(
 
 
 @pytest.fixture
+async def user_in_db(db_connection: AsyncSession) -> User:
+    user = UserFactory.build()
+
+    db_connection.add(user)
+    await db_connection.commit()
+    await db_connection.refresh(user)
+
+    return user
+
+
+@pytest.fixture
 async def event_in_db(db_connection: AsyncSession) -> Event:
     existing_event = EventFactory.build()
 
@@ -213,37 +238,75 @@ async def event_in_db(db_connection: AsyncSession) -> Event:
 
 
 @pytest.fixture
-async def get_event_by_id(
-    db_connection: AsyncSession,
-) -> Callable[[int], Awaitable[Event | None]]:
-    async def _get_event(id: int) -> Event | None:
-        query = select(Event).where(Event.id == id)
-        result = await db_connection.execute(query)
+async def ticket_type_in_db(
+    db_connection: AsyncSession, event_in_db: Event
+) -> TicketType:
+    ticket_type = TicketTypeFactory.build(event=event_in_db)
 
-        return result.scalar_one_or_none()
-
-    return _get_event
-
-
-@pytest.fixture
-async def get_event_by_title(
-    db_connection: AsyncSession,
-) -> Callable[[str], Awaitable[Event | None]]:
-    async def _get_event(title: str) -> Event | None:
-        query = select(Event).where(Event.title == title)
-        result = await db_connection.execute(query)
-
-        return result.scalar_one_or_none()
-
-    return _get_event
-
-
-@pytest.fixture
-async def user_in_db(db_connection: AsyncSession) -> User:
-    user = UserFactory.build()
-
-    db_connection.add(user)
+    db_connection.add(ticket_type)
     await db_connection.commit()
-    await db_connection.refresh(user)
+    await db_connection.refresh(ticket_type)
 
-    return user
+    return ticket_type
+
+
+@pytest.fixture
+async def ticket_in_db(
+    db_connection: AsyncSession, ticket_type_in_db: TicketType, user_in_db: User
+) -> Ticket:
+    ticket = TicketFactory.build(ticket_type=ticket_type_in_db, owner=user_in_db)
+
+    db_connection.add(ticket)
+    await db_connection.commit()
+    await db_connection.refresh(ticket)
+
+    return ticket
+
+
+@pytest.fixture
+async def test_session_factory(
+    db_connection: AsyncSession,
+) -> async_sessionmaker[AsyncSession]:
+    async_bind = db_connection.bind
+
+    engine = async_bind.engine if hasattr(async_bind, "engine") else async_bind
+
+    return async_sessionmaker(bind=engine, expire_on_commit=False)
+
+
+@pytest.fixture
+async def stress_client(
+    client: AsyncClient,
+    test_session_factory: async_sessionmaker[AsyncSession],
+) -> AsyncClient:
+    async def override_get_db_concurrent() -> AsyncGenerator[AsyncSession, None]:
+        async with test_session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db_concurrent
+
+    return client
+
+
+@pytest.fixture
+def bypass_auth(superuser: User) -> Generator[None, None, None]:
+    app.dependency_overrides[get_current_user] = lambda: superuser
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.fixture
+async def cleanup_physical_db(
+    test_session_factory: async_sessionmaker[AsyncSession],
+) -> AsyncGenerator[None, None]:
+    yield
+    async with test_session_factory() as session:
+        await session.execute(delete(Ticket))
+        await session.execute(delete(TicketType))
+        await session.execute(delete(Event))
+        await session.commit()
+
+
+@pytest.fixture
+def api_client(request: pytest.FixtureRequest) -> AsyncClient:
+    return cast(AsyncClient, request.getfixturevalue(request.param))
