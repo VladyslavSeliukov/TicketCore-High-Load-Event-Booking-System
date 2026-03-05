@@ -75,10 +75,15 @@ class UserUpdate(BaseModel):
 
 
 class PasswordChange(BaseModel):
-    old_password: str
     model_config = ConfigDict(str_strip_whitespace=True)
 
+    old_password: str = Field(
+        ...,
+        max_length=100,
+        description="Old Password",
+    )
     new_password: str = Field(
+        ...,
         min_length=8,
         max_length=100,
         description="New Password",
