@@ -8,7 +8,12 @@ from src.api.deps import EventServiceDep, get_current_superuser
 from src.core.config import settings
 from src.core.exception import EmptyUpdateDataError
 from src.models import Event, User
-from src.schemas.event import EventCreate, EventResponse, EventUpdate
+from src.schemas.event import (
+    EventCreate,
+    EventDetailResponse,
+    EventResponse,
+    EventUpdate,
+)
 
 router = APIRouter()
 
@@ -22,12 +27,16 @@ async def create_event(
     return await event_service.create(event_data=event)
 
 
-@router.get("/{event_id}", response_model=EventResponse, status_code=status.HTTP_200_OK)
+@router.get(
+    "/{event_id}", response_model=EventDetailResponse, status_code=status.HTTP_200_OK
+)
 async def get_event(event_id: int, event_service: EventServiceDep) -> Event:
     return await event_service.get(event_id=event_id)
 
 
-@router.get("/", response_model=list[EventResponse], status_code=status.HTTP_200_OK)
+@router.get(
+    "/", response_model=list[EventDetailResponse], status_code=status.HTTP_200_OK
+)
 async def get_events(
     event_service: EventServiceDep,
     offset: Annotated[int, Query(ge=0)] = 0,
