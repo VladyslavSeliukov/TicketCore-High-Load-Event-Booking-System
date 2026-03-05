@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.security import get_password_hash, verify_password
 from src.models import Ticket, User
-from tests.factories import EventFactory, UserFactory
+from tests.factories import UserFactory
 
 
 @pytest.mark.asyncio
@@ -68,7 +68,7 @@ class TestUserModel:
 
     @pytest.mark.parametrize(
         "field, invalid_value",
-        [("email", "a" * 101), ("hashed_password", "a" * 256)],
+        [("email", "a" * 255), ("hashed_password", "a" * 256)],
         ids=["email_too_long", "password_too_long"],
     )
     async def test_string_length_limits(
@@ -100,22 +100,10 @@ class TestUserModel:
 
         await db_connection.rollback()
 
-    async def test_delete_user_with_tickets(self, db_connection: AsyncSession) -> None:
-        user = UserFactory.build()
-        event = EventFactory.build()
-
-        db_connection.add_all([user, event])
-        await db_connection.commit()
-
-        await db_connection.refresh(user)
-        await db_connection.refresh(event)
-
-        ticket = Ticket(price=1000, owner_id=user.id, event_id=event.id)
-
-        db_connection.add(ticket)
-        await db_connection.commit()
-
-        await db_connection.delete(user)
+    async def test_delete_user_with_tickets(
+        self, db_connection: AsyncSession, ticket_in_db: Ticket
+    ) -> None:
+        await db_connection.delete(ticket_in_db.owner)
 
         with pytest.raises(IntegrityError):
             await db_connection.commit()
