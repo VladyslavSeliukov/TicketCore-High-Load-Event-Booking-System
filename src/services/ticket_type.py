@@ -49,7 +49,10 @@ class TicketTypeService:
         return result.all()
 
     async def delete(self, ticket_type_id: int) -> None:
-        ticket_type = await self.get(ticket_type_id)
+        ticket_type = await self.db.get(TicketType, ticket_type_id)
+
+        if not ticket_type:
+            raise TicketTypeNotFoundError("Ticket type not found")
 
         try:
             await self.db.delete(ticket_type)
@@ -68,7 +71,10 @@ class TicketTypeService:
     async def update(
         self, ticket_type_id: int, update_data: TicketTypeUpdate
     ) -> TicketType:
-        ticket_type = await self.get(ticket_type_id)
+        ticket_type = await self.db.get(TicketType, ticket_type_id)
+
+        if not ticket_type:
+            raise TicketTypeNotFoundError("Ticket type not found")
 
         update_dict = update_data.model_dump(exclude_unset=True)
         if not update_dict:

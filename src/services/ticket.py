@@ -86,8 +86,15 @@ class TicketService:
         return result.all()
 
     async def delete(self, owner_id: int, ticket_id: int) -> None:
-        ticket = await self.get(owner_id=owner_id, ticket_id=ticket_id)
+        query = (
+            select(Ticket)
+            .where(Ticket.id == ticket_id)
+            .where(Ticket.owner_id == owner_id)
+        )
+        ticket = await self.db.scalar(query)
 
+        if not ticket:
+            raise TicketNotFoundError("Ticket not found")
         try:
             update_query = (
                 update(TicketType)
