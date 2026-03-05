@@ -51,7 +51,10 @@ class EventService:
         return result.all()
 
     async def delete(self, event_id: int) -> None:
-        event = await self.get(event_id)
+        event = await self.db.get(Event, event_id)
+
+        if not event:
+            raise EventNotFoundError("Event not found")
 
         try:
             await self.db.delete(event)
@@ -70,7 +73,10 @@ class EventService:
             raise
 
     async def update(self, event_id: int, update_data: EventUpdate) -> Event:
-        event = await self.get(event_id)
+        event = await self.db.get(Event, event_id)
+
+        if not event:
+            raise EventNotFoundError("Event not found")
 
         update_dict = update_data.model_dump(exclude_unset=True)
         if not update_dict:
