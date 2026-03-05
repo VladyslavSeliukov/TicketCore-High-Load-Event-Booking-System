@@ -20,14 +20,23 @@ class EventBase(BaseModel):
     )
 
     country: str = Field(
-        ..., min_length=1, description="Country of the event", examples=["Poland"]
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Country of the event",
+        examples=["Poland"],
     )
     city: str = Field(
-        ..., min_length=1, description="City of the event", examples=["Wroclaw"]
+        ...,
+        min_length=1,
+        max_length=100,
+        description="City of the event",
+        examples=["Wroclaw"],
     )
     street_address: str = Field(
         ...,
         min_length=1,
+        max_length=100,
         description="Street address of the event",
         examples=["Sucha 1"],
     )
@@ -59,14 +68,23 @@ class EventUpdate(BaseModel):
     )
 
     country: str | None = Field(
-        None, min_length=1, description="Country of the event", examples=["Poland"]
+        None,
+        min_length=1,
+        max_length=100,
+        description="Country of the event",
+        examples=["Poland"],
     )
     city: str | None = Field(
-        None, min_length=1, description="City of the event", examples=["Wroclaw"]
+        None,
+        min_length=1,
+        max_length=100,
+        description="City of the event",
+        examples=["Wroclaw"],
     )
     street_address: str | None = Field(
         None,
         min_length=1,
+        max_length=100,
         description="Street address of the event",
         examples=["Sucha 1"],
     )
