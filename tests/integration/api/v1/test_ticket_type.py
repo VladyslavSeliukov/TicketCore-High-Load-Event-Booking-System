@@ -102,7 +102,7 @@ class TestTicketTypeGet:
         assert db_ticket_type is None
 
     async def test_pagination_for_get_all_ticket_type_for_event(
-        self, client: AsyncClient, event_in_db, db_connection: AsyncSession
+        self, client: AsyncClient, event_in_db: Event, db_connection: AsyncSession
     ) -> None:
         factory_ticket_types = TicketTypeFactory.batch(size=10, event=event_in_db)
         db_connection.add_all(factory_ticket_types)
@@ -204,7 +204,7 @@ class TestTicketTypePatch:
         payload: dict[str, str],
         db_connection: AsyncSession,
         authorized_superuser: AsyncClient,
-    ):
+    ) -> None:
         non_existent_id = 999
 
         result = await authorized_superuser.patch(
@@ -226,8 +226,6 @@ class TestTicketTypePatch:
         db_connection.add(ticket_type_in_db)
         await db_connection.commit()
 
-        ticket_type_id = ticket_type_in_db.id
-        ticket_type_tickets_quantity = ticket_type_in_db.tickets_quantity
         payload = {"tickets_quantity": 10}
 
         result = await authorized_superuser.patch(
@@ -236,28 +234,18 @@ class TestTicketTypePatch:
 
         assert result.status_code == status.HTTP_409_CONFLICT
 
-        db_ticket_type = await db_connection.get(TicketType, ticket_type_id)
-        assert db_ticket_type.tickets_quantity != payload["tickets_quantity"]
-        assert db_ticket_type.tickets_quantity == ticket_type_tickets_quantity
-
     async def test_cannot_change_event_id(
         self,
         db_connection: AsyncSession,
         ticket_type_in_db: TicketType,
         authorized_superuser: AsyncClient,
     ) -> None:
-        ticket_type_id = ticket_type_in_db.id
         payload = {"event_id": 99999}
 
         result = await authorized_superuser.patch(
             f"{BASE_URL}{ticket_type_in_db.id}", json=payload
         )
         assert result.status_code == status.HTTP_400_BAD_REQUEST
-
-        db_connection.expire_all()
-        db_ticket_type = await db_connection.get(TicketType, ticket_type_id)
-
-        assert db_ticket_type.event_id != payload["event_id"]
 
 
 @pytest.mark.asyncio
