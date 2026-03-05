@@ -114,8 +114,8 @@ class TestAuthLogin:
         payload["username"] = normal_user.email
 
         response = await client.post(self.BASE_URL, data=payload)
-
         assert response.status_code == status.HTTP_200_OK
+
         token_data = response.json()
         assert "access_token" in token_data
         assert token_data["token_type"] == "bearer"
@@ -164,8 +164,8 @@ class TestAuthLogin:
         }
 
         response = await client.post(self.BASE_URL, data=inactive_payload)
-
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
         assert response.json()["detail"] == "User is inactive"
 
     async def test_invalid_token(self, client: AsyncClient) -> None:
@@ -178,7 +178,7 @@ class TestAuthLogin:
         "missing_field, payload", get_missing_field_cases(LOGIN_PAYLOAD)
     )
     async def test_login_missing_fields(
-        self, client: AsyncClient, missing_field: AsyncSession, payload: dict[str, Any]
+        self, client: AsyncClient, missing_field: str, payload: dict[str, Any]
     ) -> None:
         response = await client.post(self.BASE_URL, data=payload)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -192,6 +192,6 @@ class TestAuthLogin:
         headers = {"Authorization": f"Bearer {expired_token}"}
 
         response = await client.post(self.EVENT_URL, headers=headers, json={})
-
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
         assert response.json()["detail"].lower() == "could not validate credentials"
