@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
+    field_validator,
 
 
 class UserBase(BaseModel):
@@ -7,7 +8,7 @@ class UserBase(BaseModel):
     email: EmailStr = Field(
         ...,
         min_length=5,
-        max_length=100,
+        max_length=254,
         description="User Email",
         examples=["seliukovvladyslav@gmail.com"],
     )
@@ -23,6 +24,13 @@ class UserCreate(UserBase):
         examples=["very_secure_password"],
     )
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def lowercase_email(cls, v: str) -> str:
+        if isinstance(v, str):
+            return v.lower()
+        return v
+
 
 class UserResponse(UserBase):
     id: int
@@ -37,7 +45,7 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = Field(
         None,
         min_length=5,
-        max_length=100,
+        max_length=254,
         description="User Email",
         examples=["seliukovvladyslav@gmail.com"],
     )
@@ -51,9 +59,13 @@ class UserUpdate(BaseModel):
     is_active: bool | None = Field(
         None, description="Is User active?", examples=["True"]
     )
-    is_superuser: bool | None = Field(
-        None, description="User is super user?", examples=["True"]
-    )
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def lowercase_email(cls, v: str | None) -> str | None:
+        if isinstance(v, str):
+            return v.lower()
+        return v
 
 
 class PasswordChange(BaseModel):
