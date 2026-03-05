@@ -1,3 +1,6 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import JSONResponse
@@ -9,6 +12,8 @@ from src.core.exception import (
     EmptyUpdateDataError,
     EventDeleteError,
     EventNotFoundError,
+    IdempotencyConflictError,
+    IdempotencyStateError,
     InactiveUserError,
     InvalidCredentialsError,
     TicketNotFoundError,
@@ -18,11 +23,25 @@ from src.core.exception import (
     TicketTypeQuantity,
     UserAlreadyExistsError,
 )
+from src.db.redis import close_redis_pool, init_redis_pool
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    logger.info("Initializing Redis Pool...")
+    await init_redis_pool()
+
+    yield
+
+    logger.info("Closing Redis pool...")
+    await close_redis_pool()
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.PROJECT_VERSION,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan,
 )
 
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["Auth"])
@@ -58,6 +77,8 @@ async def not_found_exception_handler(request: Request, exc: Exception) -> JSONR
     )
 
 
+@app.exception_handler(IdempotencyStateError)
+@app.exception_handler(IdempotencyConflictError)
 @app.exception_handler(TicketTypeQuantity)
 @app.exception_handler(TicketTypeDeleteError)
 @app.exception_handler(EventDeleteError)

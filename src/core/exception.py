@@ -56,3 +56,15 @@ class TicketTypeQuantity(TicketTypeError):
 
 class EmptyUpdateDataError(Exception):
     pass
+
+
+class IdempotencyError(Exception):
+    pass
+
+
+class IdempotencyConflictError(IdempotencyError):
+    pass
+
+
+class IdempotencyStateError(IdempotencyError):
+    pass
