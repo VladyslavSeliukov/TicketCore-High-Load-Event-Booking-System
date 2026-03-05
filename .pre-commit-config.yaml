@@ -27,6 +27,7 @@ repos:
           "types-python-jose",
           "passlib",
           "types-passlib",
-          "polyfactory"
+          "polyfactory",
+          "types-redis"
         ]
         args: [ "--config-file=pyproject.toml" ]
