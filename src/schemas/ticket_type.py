@@ -25,11 +25,14 @@ class TicketTypeCreate(TicketTypeBase):
 
 
 class TicketTypeResponse(TicketTypeCreate):
-    id: int
-    tickets_sold: int
     model_config = ConfigDict(from_attributes=True)
 
     id: PositiveInt
+
+
+class TicketTypeDetailResponse(TicketTypeResponse):
+    tickets_sold: NonNegativeInt
+
 
 class TicketTypeUpdate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
