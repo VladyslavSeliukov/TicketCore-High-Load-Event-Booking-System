@@ -21,7 +21,7 @@ class TestAuthSignup:
         "password": "very_secure_password",
     }
 
-    async def test_successful_signup(
+    async def test_valid(
         self, client: AsyncClient, db_connection: AsyncSession
     ) -> None:
         response = await client.post(self.BASE_URL, json=self.SIGNUP_PAYLOAD)
@@ -82,9 +82,7 @@ class TestAuthLogin:
         "password": "very_secure_password",
     }
 
-    async def test_successful_login(
-        self, client: AsyncClient, normal_user: User
-    ) -> None:
+    async def test_valid(self, client: AsyncClient, normal_user: User) -> None:
         payload = self.LOGIN_PAYLOAD.copy()
         payload["username"] = normal_user.email
 
