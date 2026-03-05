@@ -4,7 +4,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from fastapi.params import Query
 
-from src.api.deps import EventServiceDep, get_current_superuser
+from src.api.decorators import idempotent
+from src.api.deps import (
+    EventServiceDep,
+    IdempotencyHeader,
+    IdempotencyServiceDep,
+    get_current_superuser,
+)
 from src.core.config import settings
 from src.core.exception import EmptyUpdateDataError
 from src.models import Event, User
@@ -19,10 +25,13 @@ router = APIRouter()
 
 
 @router.post("/", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
+@idempotent(action="create_ticket")
 async def create_event(
     event: EventCreate,
     event_service: EventServiceDep,
     admin_user: Annotated[User, Depends(get_current_superuser)],
+    idempotency_service: IdempotencyServiceDep,
+    idempotency_key: IdempotencyHeader = None,
 ) -> Event:
     return await event_service.create(event_data=event)
 

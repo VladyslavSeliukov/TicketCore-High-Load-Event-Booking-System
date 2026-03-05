@@ -4,7 +4,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from fastapi.params import Query
 
-from src.api.deps import TicketTypeServiceDep, get_current_superuser
+from src.api.decorators import idempotent
+from src.api.deps import (
+    IdempotencyHeader,
+    IdempotencyServiceDep,
+    TicketTypeServiceDep,
+    get_current_superuser,
+)
 from src.core import settings
 from src.core.exception import EmptyUpdateDataError
 from src.models import User
@@ -22,10 +28,13 @@ router = APIRouter()
 @router.post(
     "/", response_model=TicketTypeResponse, status_code=status.HTTP_201_CREATED
 )
+@idempotent(action="ticket_type_create")
 async def ticket_type_create(
     ticket_type_data: TicketTypeCreate,
     ticket_type_service: TicketTypeServiceDep,
     admin: Annotated[User, Depends(get_current_superuser)],
+    idempotency_service: IdempotencyServiceDep,
+    idempotency_key: IdempotencyHeader = None,
 ) -> TicketType:
     return await ticket_type_service.create(ticket_type_data)
 
