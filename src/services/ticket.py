@@ -41,23 +41,14 @@ class TicketService:
         self.db.add(new_ticket)
         try:
             await self.db.commit()
+            await self.db.refresh(new_ticket)
 
-            query_load = (
-                select(Ticket)
-                .options(selectinload(Ticket.ticket_type).joinedload(TicketType.event))
-                .where(Ticket.id == new_ticket.id)
-            )
-
-            loaded_ticket = await self.db.scalar(query_load)
-
-            if not loaded_ticket:
-                raise SQLAlchemyError("Failed to load ticket after creation")
-
-            logger.info(f"Ticket created: {loaded_ticket.id}")
+            logger.info(f"Ticket created: {new_ticket.id}")
         except SQLAlchemyError:
             await self.db.rollback()
             raise
-        return loaded_ticket
+
+        return new_ticket
 
     async def get(self, owner_id: int, ticket_id: int) -> Ticket:
         query = (
@@ -86,8 +77,15 @@ class TicketService:
         return result.all()
 
     async def delete(self, owner_id: int, ticket_id: int) -> None:
-        ticket = await self.get(owner_id=owner_id, ticket_id=ticket_id)
+        query = (
+            select(Ticket)
+            .where(Ticket.id == ticket_id)
+            .where(Ticket.owner_id == owner_id)
+        )
+        ticket = await self.db.scalar(query)
 
+        if not ticket:
+            raise TicketNotFoundError("Ticket not found")
         try:
             update_query = (
                 update(TicketType)

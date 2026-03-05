@@ -5,7 +5,11 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core import logger
-from src.core.exception import TicketTypeDeleteError, TicketTypeNotFoundError
+from src.core.exception import (
+    TicketTypeDeleteError,
+    TicketTypeNotFoundError,
+    TicketTypeQuantity,
+)
 from src.models import TicketType
 from src.schemas.ticket_type import TicketTypeCreate, TicketTypeUpdate
 
@@ -49,7 +53,10 @@ class TicketTypeService:
         return result.all()
 
     async def delete(self, ticket_type_id: int) -> None:
-        ticket_type = await self.get(ticket_type_id)
+        ticket_type = await self.db.get(TicketType, ticket_type_id)
+
+        if not ticket_type:
+            raise TicketTypeNotFoundError("Ticket type not found")
 
         try:
             await self.db.delete(ticket_type)
@@ -64,15 +71,28 @@ class TicketTypeService:
             raise TicketTypeDeleteError(
                 "Cannot delete ticket type with existing tickets"
             ) from e
+        except SQLAlchemyError:
+            await self.db.rollback()
+            raise
 
     async def update(
         self, ticket_type_id: int, update_data: TicketTypeUpdate
     ) -> TicketType:
-        ticket_type = await self.get(ticket_type_id)
+        ticket_type = await self.db.get(TicketType, ticket_type_id)
+
+        if not ticket_type:
+            raise TicketTypeNotFoundError("Ticket type not found")
 
         update_dict = update_data.model_dump(exclude_unset=True)
         if not update_dict:
             return ticket_type
+
+        new_quantity = update_dict.get("tickets_quantity")
+        if new_quantity is not None and new_quantity < ticket_type.tickets_sold:
+            raise TicketTypeQuantity(
+                f"Cannot set tickets_quantity ({new_quantity}) "
+                f"less than tickets_sold ({ticket_type.tickets_sold})"
+            )
 
         for key, value in update_dict.items():
             setattr(ticket_type, key, value)

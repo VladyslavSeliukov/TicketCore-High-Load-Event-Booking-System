@@ -1,20 +1,39 @@
+from typing import Any
+
 import pytest
 from pydantic import ValidationError
 
-from src.schemas import TicketCreate
+from src.models import Event, Ticket, TicketType
+from src.schemas import TicketCreate, TicketResponse
 
 
-def test_ticket_params() -> None:
-    ticket = TicketCreate(event_id=1, price=100)
-    assert ticket.price == 100
-    assert ticket.event_id == 1
+class TestTicketCreateSchema:
+    VALID_PAYLOAD: dict[str, int] = {"ticket_type_id": 1}
+
+    def test_valid(self) -> None:
+        schema = TicketCreate(**self.VALID_PAYLOAD)
+
+        assert schema.ticket_type_id == self.VALID_PAYLOAD["ticket_type_id"]
+
+    @pytest.mark.parametrize("invalid_type_id", [None, "string_id", -1, 0])
+    def test_invalid_ticket_type_id(self, invalid_type_id: Any) -> None:
+        invalid_data = {"ticket_type_id": invalid_type_id}
+        with pytest.raises(ValidationError):
+            TicketCreate(**invalid_data)
+
+    def test_missing_fields(self) -> None:
+        payload: dict[str, Any] = {}
+        with pytest.raises(ValidationError):
+            TicketCreate(**payload)
 
 
-def test_negative_ticket_price() -> None:
-    with pytest.raises(ValidationError):
-        TicketCreate(event_id=1, price=-50)
+class TestTicketResponseSchema:
+    def test_model_validate_from_orm(self) -> None:
+        event = Event(title="Korn 2026")
+        ticket_type = TicketType(id=1, event=event)
+        ticket = Ticket(id=42, ticket_type_id=1, ticket_type=ticket_type)
 
+        ticket_response = TicketResponse.model_validate(ticket)
 
-def test_without_ticket_params() -> None:
-    with pytest.raises(ValidationError):
-        TicketCreate(event_id=1)  # type: ignore[call-arg]
+        assert ticket_response.id == 42
+        assert ticket_response.ticket_type_id == 1

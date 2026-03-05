@@ -1,7 +1,9 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt
 
 
 class TicketTypeBase(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     name: str = Field(
         ...,
         min_length=1,
@@ -9,7 +11,9 @@ class TicketTypeBase(BaseModel):
         description="Ticket type name",
         examples=["VIP", "Standard"],
     )
-    price: int = Field(..., ge=0, description="Price in cents", examples=[10000])
+    price: NonNegativeInt = Field(
+        ..., ge=0, description="Price in cents", examples=[10000]
+    )
 
     tickets_quantity: int = Field(
         ..., gt=0, description="Quantity of tickets of this type"
@@ -17,16 +21,22 @@ class TicketTypeBase(BaseModel):
 
 
 class TicketTypeCreate(TicketTypeBase):
-    event_id: int = Field(..., description="Event id")
+    event_id: PositiveInt = Field(..., description="Event id")
 
 
 class TicketTypeResponse(TicketTypeCreate):
-    id: int
-    tickets_sold: int
     model_config = ConfigDict(from_attributes=True)
+
+    id: PositiveInt
+
+
+class TicketTypeDetailResponse(TicketTypeResponse):
+    tickets_sold: NonNegativeInt
 
 
 class TicketTypeUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     name: str | None = Field(
         None,
         min_length=1,
@@ -34,9 +44,9 @@ class TicketTypeUpdate(BaseModel):
         description="Ticket type name",
         examples=["VIP", "Standard"],
     )
-    price: int | None = Field(
+    price: NonNegativeInt | None = Field(
         None, ge=0, description="Price in cents", examples=[10000]
     )
-    tickets_quantity: int | None = Field(
+    tickets_quantity: PositiveInt | None = Field(
         None, gt=0, description="Quantity of tickets of this type"
     )

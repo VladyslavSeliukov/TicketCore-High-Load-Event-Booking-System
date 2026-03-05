@@ -22,11 +22,11 @@ class TicketType(Base):
     tickets_sold: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     # 1:N
     tickets: Mapped[list["Ticket"]] = relationship(
-        "Ticket", back_populates="ticket_type", cascade="all, delete-orphan"
+        "Ticket", back_populates="ticket_type"
     )
 
     event_id: Mapped[int] = mapped_column(
-        ForeignKey("events.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("events.id", ondelete="RESTRICT"), nullable=False
     )
     # N:1
     event: Mapped["Event"] = relationship("Event", back_populates="ticket_types")
@@ -34,6 +34,7 @@ class TicketType(Base):
     __table_args__ = (
         CheckConstraint(sqltext="price >= 0", name="check_ticket_price"),
         CheckConstraint(sqltext="tickets_quantity > 0", name="check_ticket_quantity"),
+        CheckConstraint(sqltext="tickets_sold >= 0", name="check_ticket_sold"),
         CheckConstraint(
             sqltext="tickets_quantity >= tickets_sold", name="check_sold_limit"
         ),

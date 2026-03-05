@@ -16,7 +16,7 @@ class Event(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     title: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
-    date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     country: Mapped[str] = mapped_column(String(100), nullable=False)
     city: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -24,5 +24,5 @@ class Event(Base):
 
     # 1:N
     ticket_types: Mapped[list["TicketType"]] = relationship(
-        "TicketType", back_populates="event", cascade="all, delete-orphan"
+        "TicketType", back_populates="event"
     )

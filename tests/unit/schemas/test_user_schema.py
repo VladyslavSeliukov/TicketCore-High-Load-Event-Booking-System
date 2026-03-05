@@ -56,7 +56,6 @@ def valid_update_payload() -> dict[str, Any]:
         "email": "seliukovvladyslav@gmail.com",
         "password": "very_secure_password",
         "is_active": True,
-        "is_superuser": False,
     }
 
 
@@ -66,9 +65,9 @@ class TestUserUpdate:
         updated_user = UserUpdate(**payload)
 
         assert updated_user.email == payload["email"]
-        assert updated_user.is_superuser == payload["is_superuser"]
         assert updated_user.is_active == payload["is_active"]
         assert updated_user.password == payload["password"]
+        assert not hasattr(updated_user, "is_superuser")
 
     def test_partial_update(self) -> None:
         payload: dict[str, Any] = {
@@ -79,7 +78,6 @@ class TestUserUpdate:
         user = UserUpdate(**payload)
 
         assert user.is_active == payload["is_active"]
-        assert user.is_superuser is None
         assert user.password is None
 
     @pytest.mark.parametrize(
@@ -87,7 +85,6 @@ class TestUserUpdate:
         [
             ("password", "", "String should have at least 8 characters"),
             ("is_active", "", "Input should be a valid boolean"),
-            ("is_superuser", "", "Input should be a valid boolean"),
         ],
     )
     def test_invalid_cases(

@@ -7,7 +7,7 @@ from fastapi.params import Depends, Query
 from src.api.deps import TicketServiceDep, get_current_user
 from src.core.config import settings
 from src.models import Ticket, User
-from src.schemas.ticket import TicketCreate, TicketResponse
+from src.schemas.ticket import TicketCreate, TicketDetailResponse, TicketResponse
 
 router = APIRouter()
 
@@ -22,7 +22,7 @@ async def create_ticket(
 
 
 @router.get(
-    "/{ticket_id}", response_model=TicketResponse, status_code=status.HTTP_200_OK
+    "/{ticket_id}", response_model=TicketDetailResponse, status_code=status.HTTP_200_OK
 )
 async def get_ticket(
     owner: Annotated[User, Depends(get_current_user)],
@@ -32,7 +32,9 @@ async def get_ticket(
     return await ticket_service.get(owner_id=owner.id, ticket_id=ticket_id)
 
 
-@router.get("/", response_model=list[TicketResponse], status_code=status.HTTP_200_OK)
+@router.get(
+    "/", response_model=list[TicketDetailResponse], status_code=status.HTTP_200_OK
+)
 async def get_tickets(
     owner: Annotated[User, Depends(get_current_user)],
     ticket_service: TicketServiceDep,

@@ -7,4 +7,4 @@ class Token(BaseModel):
 
 
 class TokenPayload(BaseModel):
-    sub: str | None = Field(None, description="User Id")
+    sub: str = Field(..., description="User Id")
