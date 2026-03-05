@@ -8,6 +8,7 @@ from src.core import logger
 from src.core.exception import (
     TicketTypeDeleteError,
     TicketTypeNotFoundError,
+    TicketTypeQuantity,
 )
 from src.models import TicketType
 from src.schemas.ticket_type import TicketTypeCreate, TicketTypeUpdate
@@ -85,6 +86,13 @@ class TicketTypeService:
         update_dict = update_data.model_dump(exclude_unset=True)
         if not update_dict:
             return ticket_type
+
+        new_quantity = update_dict.get("tickets_quantity")
+        if new_quantity is not None and new_quantity < ticket_type.tickets_sold:
+            raise TicketTypeQuantity(
+                f"Cannot set tickets_quantity ({new_quantity}) "
+                f"less than tickets_sold ({ticket_type.tickets_sold})"
+            )
 
         for key, value in update_dict.items():
             setattr(ticket_type, key, value)
