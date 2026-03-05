@@ -15,10 +15,10 @@ BASE_URL = "/api/v1/events/"
 @pytest.mark.asyncio
 class TestEventPost:
     @pytest.fixture
-    async def event_payload(self) -> EventCreate:
+    async def payload(self) -> EventCreate:
         return EventPayloadFactory.build()
 
-    async def test_post_event_by_superuser(
+    async def test_valid(
         self,
         authorized_superuser: AsyncClient,
         db_connection: AsyncSession,
@@ -56,6 +56,7 @@ class TestEventPost:
         assert db_event is None
 
     async def test_post_event_by_unauthorized_client(
+    async def test_access_denied(
         self,
         client: AsyncClient,
         db_connection: AsyncSession,
@@ -118,6 +119,7 @@ class TestEventGet:
     async def test_get_non_existent_event(self, client: AsyncClient) -> None:
         response = await client.get(f"{BASE_URL}999")
 
+    async def test_get_non_existent_event(
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     async def test_event_pagination(
@@ -149,7 +151,7 @@ class TestEventGet:
 
 @pytest.mark.asyncio
 class TestEventPatch:
-    async def test_patch_event_by_superuser(
+    async def test_valid(
         self,
         authorized_superuser: AsyncClient,
         db_connection: AsyncSession,
@@ -232,7 +234,7 @@ class TestEventPatch:
 
 @pytest.mark.asyncio
 class TestEventDelete:
-    async def test_delete_event_by_superuser(
+    async def test_valid(
         self,
         authorized_superuser: AsyncClient,
         db_connection: AsyncSession,
@@ -248,6 +250,7 @@ class TestEventDelete:
         assert db_event is None
 
     async def test_delete_event_by_normal_user(
+    async def test_access_denied(
         self,
         authorized_user: AsyncClient,
         db_connection: AsyncSession,
@@ -262,7 +265,7 @@ class TestEventDelete:
         db_event = await get_event_by_id(event_id)
         assert db_event is not None
 
-    async def test_delete_event_by_unauthorized_user(
+    async def test_non_existent_event(
         self,
         client: AsyncClient,
         db_connection: AsyncSession,
@@ -277,7 +280,7 @@ class TestEventDelete:
         db_event = await get_event_by_id(event_id)
         assert db_event is not None
 
-    async def test_delete_event_with_tickets(
+    async def test_delete_event_with_existing_tickets(
         self,
         authorized_superuser: AsyncClient,
         db_connection: AsyncSession,
