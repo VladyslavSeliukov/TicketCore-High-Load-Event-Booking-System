@@ -1,11 +1,10 @@
-from collections.abc import Awaitable, Callable
-
 import pytest
 from fastapi import status
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import Event
+from src.models import Event, TicketType, User
 from src.schemas import EventCreate
 from tests.factories import EventFactory, EventPayloadFactory, TicketFactory
 
@@ -20,74 +19,55 @@ class TestEventPost:
 
     async def test_valid(
         self,
-        authorized_superuser: AsyncClient,
+        payload: EventCreate,
         db_connection: AsyncSession,
-        event_payload: EventCreate,
-        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+        authorized_superuser: AsyncClient,
     ) -> None:
-        event_dict = event_payload.model_dump(mode="json")
-
-        response = await authorized_superuser.post(BASE_URL, json=event_dict)
-
+        response = await authorized_superuser.post(
+            BASE_URL, json=payload.model_dump(mode="json")
+        )
         assert response.status_code == status.HTTP_201_CREATED
-        data = response.json()
-        assert data["title"] == event_payload.title
-        assert data["tickets_quantity"] == event_payload.tickets_quantity
 
-        found_event = await get_event_by_id(data["id"])
+        data = response.json()
+        assert data["title"] == payload.title
+
+        found_event = await db_connection.get(Event, data["id"])
 
         assert found_event is not None
-        assert found_event.title == event_payload.title
-        assert found_event.tickets_quantity == event_payload.tickets_quantity
+        assert found_event.title == payload.title
 
-    async def test_post_event_by_normal_user(
-        self,
-        authorized_user: AsyncClient,
-        db_connection: AsyncSession,
-        event_payload: EventCreate,
-        get_event_by_title: Callable[[str], Awaitable[Event | None]],
-    ) -> None:
-        event_dict = event_payload.model_dump(mode="json")
-
-        response = await authorized_user.post(BASE_URL, json=event_dict)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-
-        db_event = await get_event_by_title(event_payload.title)
-        assert db_event is None
-
-    async def test_post_event_by_unauthorized_client(
+    @pytest.mark.parametrize(
+        "api_client, expected_status",
+        [
+            ("authorized_user", status.HTTP_403_FORBIDDEN),
+            ("client", status.HTTP_401_UNAUTHORIZED),
+        ],
+        indirect=["api_client"],
+    )
     async def test_access_denied(
         self,
-        client: AsyncClient,
+        expected_status: int,
+        payload: EventCreate,
+        api_client: AsyncClient,
         db_connection: AsyncSession,
-        event_payload: EventCreate,
-        get_event_by_title: Callable[[str], Awaitable[Event | None]],
     ) -> None:
-        event_dict = event_payload.model_dump(mode="json")
+        response = await api_client.post(BASE_URL, json=payload.model_dump(mode="json"))
+        assert response.status_code == expected_status
 
-        response = await client.post(BASE_URL, json=event_dict)
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-        db_event = await get_event_by_title(event_payload.title)
+        query = select(Event).where(Event.title == payload.title)
+        db_event = await db_connection.scalar(query)
         assert db_event is None
-
-    async def test_post_event_with_negative_ticket_quantity(
-        self, authorized_superuser: AsyncClient, event_payload: EventCreate
-    ) -> None:
-        event_dict = event_payload.model_dump(mode="json")
-        event_dict["tickets_quantity"] = -10
-
-        response = await authorized_superuser.post(BASE_URL, json=event_dict)
-
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
-        error_detail = response.json()
-        assert any(
-            err["loc"][-1] == "tickets_quantity" for err in error_detail["detail"]
-        )
 
 
 @pytest.mark.asyncio
 class TestEventGet:
+    async def test_get_event(self, client: AsyncClient, event_in_db: Event) -> None:
+        response = await client.get(f"{BASE_URL}{event_in_db.id}")
+
+        assert response.status_code == status.HTTP_200_OK
+        event = response.json()
+        assert event["title"] == event_in_db.title
+
     async def test_get_all_events(
         self, client: AsyncClient, db_connection: AsyncSession
     ) -> None:
@@ -97,8 +77,8 @@ class TestEventGet:
         await db_connection.commit()
 
         response = await client.get(BASE_URL)
-
         assert response.status_code == status.HTTP_200_OK
+
         response_events = response.json()
         assert isinstance(response_events, list)
         assert len(response_events) == 10
@@ -108,19 +88,15 @@ class TestEventGet:
 
         assert returned_events == created_events
 
-    async def test_get_one_event(self, client: AsyncClient, event_in_db: Event) -> None:
-        response = await client.get(f"{BASE_URL}{event_in_db.id}")
-
-        assert response.status_code == status.HTTP_200_OK
-        event = response.json()
-        assert event["title"] == event_in_db.title
-        assert event["tickets_quantity"] == event_in_db.tickets_quantity
-
-    async def test_get_non_existent_event(self, client: AsyncClient) -> None:
-        response = await client.get(f"{BASE_URL}999")
-
     async def test_get_non_existent_event(
+        self, client: AsyncClient, db_connection: AsyncSession
+    ) -> None:
+        id = 999
+        response = await client.get(f"{BASE_URL}{id}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        db_event = await db_connection.get(Event, id)
+        assert db_event is None
 
     async def test_event_pagination(
         self, client: AsyncClient, db_connection: AsyncSession
@@ -130,20 +106,22 @@ class TestEventGet:
         await db_connection.commit()
 
         response_p1 = await client.get(f"{BASE_URL}?limit=5&offset=0")
-
         assert response_p1.status_code == status.HTTP_200_OK
+
         events_p1 = response_p1.json()
+        assert isinstance(events_p1, list)
         assert len(events_p1) == 5
 
         response_p2 = await client.get(f"{BASE_URL}?limit=5&offset=5")
-
         assert response_p2.status_code == status.HTTP_200_OK
+
         events_p2 = response_p2.json()
+        assert isinstance(events_p2, list)
         assert len(events_p2) == 5
 
         response_p3 = await client.get(f"{BASE_URL}?limit=5&offset=10")
-
         assert response_p3.status_code == status.HTTP_200_OK
+
         events_p3 = response_p3.json()
         assert len(events_p3) == 0
         assert isinstance(events_p3, list)
@@ -153,13 +131,11 @@ class TestEventGet:
 class TestEventPatch:
     async def test_valid(
         self,
-        authorized_superuser: AsyncClient,
-        db_connection: AsyncSession,
         event_in_db: Event,
-        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+        db_connection: AsyncSession,
+        authorized_superuser: AsyncClient,
     ) -> None:
         orig_id = event_in_db.id
-        orig_tickets_quantity = event_in_db.tickets_quantity
         payload = {"title": "New Title"}
 
         response = await authorized_superuser.patch(
@@ -169,56 +145,42 @@ class TestEventPatch:
 
         db_connection.expire_all()
 
-        updated_event = await get_event_by_id(orig_id)
+        updated_event = await db_connection.get(Event, orig_id)
 
         assert updated_event is not None
         assert updated_event.title == payload.get("title")
-        assert updated_event.tickets_quantity == orig_tickets_quantity
 
-    async def test_patch_event_by_normal_user(
+    @pytest.mark.parametrize(
+        "api_client, expected_status",
+        [
+            ("authorized_user", status.HTTP_403_FORBIDDEN),
+            ("client", status.HTTP_401_UNAUTHORIZED),
+        ],
+        indirect=["api_client"],
+    )
+    async def test_access_denied(
         self,
-        authorized_user: AsyncClient,
-        db_connection: AsyncSession,
         event_in_db: Event,
-        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+        expected_status: int,
+        api_client: AsyncClient,
+        db_connection: AsyncSession,
     ) -> None:
         orig_title = event_in_db.title
         payload = {"title": "New Title"}
 
-        response = await authorized_user.patch(
-            f"{BASE_URL}{event_in_db.id}", json=payload
-        )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        response = await api_client.patch(f"{BASE_URL}{event_in_db.id}", json=payload)
+        assert response.status_code == expected_status
 
-        db_event = await get_event_by_id(event_in_db.id)
+        db_event = await db_connection.get(Event, event_in_db.id)
 
         assert db_event is not None
         assert db_event.title == orig_title
         assert db_event.title != payload.get("title")
 
-    async def test_patch_event_by_unauthorized_client(
-        self,
-        client: AsyncClient,
-        db_connection: AsyncSession,
-        event_in_db: Event,
-        get_event_by_id: Callable[[int], Awaitable[Event | None]],
-    ) -> None:
-        original_title = event_in_db.title
-        payload = {"title": "New Title"}
-
-        response = await client.patch(f"{BASE_URL}{event_in_db.id}", json=payload)
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-        db_event = await get_event_by_id(event_in_db.id)
-
-        assert db_event is not None
-        assert db_event.title == original_title
-        assert db_event.title != payload.get("title")
-
-    async def test_patch_non_existent_event(
+    async def test_non_existent_event(
         self,
         authorized_superuser: AsyncClient,
-        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+        db_connection: AsyncSession,
     ) -> None:
         non_existent = 999
         payload = {"title": "New Title"}
@@ -228,7 +190,7 @@ class TestEventPatch:
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-        db_event = await get_event_by_id(non_existent)
+        db_event = await db_connection.get(Event, non_existent)
         assert db_event is None
 
 
@@ -236,75 +198,69 @@ class TestEventPatch:
 class TestEventDelete:
     async def test_valid(
         self,
-        authorized_superuser: AsyncClient,
-        db_connection: AsyncSession,
         event_in_db: Event,
-        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+        db_connection: AsyncSession,
+        authorized_superuser: AsyncClient,
     ) -> None:
         event_id = event_in_db.id
 
         response = await authorized_superuser.delete(f"{BASE_URL}{event_id}")
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
-        db_event = await get_event_by_id(event_id)
+        db_connection.expunge_all()
+
+        db_event = await db_connection.get(Event, event_id)
         assert db_event is None
 
-    async def test_delete_event_by_normal_user(
+    @pytest.mark.parametrize(
+        "api_client, expected_status",
+        [
+            ("authorized_user", status.HTTP_403_FORBIDDEN),
+            ("client", status.HTTP_401_UNAUTHORIZED),
+        ],
+        indirect=["api_client"],
+    )
     async def test_access_denied(
         self,
-        authorized_user: AsyncClient,
-        db_connection: AsyncSession,
         event_in_db: Event,
-        get_event_by_id: Callable[[int], Awaitable[Event | None]],
+        expected_status: int,
+        api_client: AsyncClient,
+        db_connection: AsyncSession,
     ) -> None:
         event_id = event_in_db.id
 
-        response = await authorized_user.delete(f"{BASE_URL}{event_id}")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        response = await api_client.delete(f"{BASE_URL}{event_id}")
+        assert response.status_code == expected_status
 
-        db_event = await get_event_by_id(event_id)
+        db_event = await db_connection.get(Event, event_id)
         assert db_event is not None
 
     async def test_non_existent_event(
         self,
-        client: AsyncClient,
         db_connection: AsyncSession,
-        event_in_db: Event,
-        get_event_by_id: Callable[[int], Awaitable[Event | None]],
-    ) -> None:
-        event_id = event_in_db.id
-
-        response = await client.delete(f"{BASE_URL}{event_id}")
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-        db_event = await get_event_by_id(event_id)
-        assert db_event is not None
-
-    async def test_delete_event_with_existing_tickets(
-        self,
         authorized_superuser: AsyncClient,
-        db_connection: AsyncSession,
-        event_in_db: Event,
-        get_event_by_id: Callable[[int], Awaitable[Event | None]],
-    ) -> None:
-        ticket = TicketFactory.build(event=event_in_db)
-
-        db_connection.add(ticket)
-        await db_connection.commit()
-
-        response = await authorized_superuser.delete(f"{BASE_URL}{event_in_db.id}")
-        assert response.status_code == status.HTTP_409_CONFLICT
-
-    async def test_delete_non_existent_event(
-        self,
-        authorized_superuser: AsyncClient,
-        db_connection: AsyncSession,
-        get_event_by_id: Callable[[int], Awaitable[Event | None]],
     ) -> None:
         non_existent = 999
 
         response = await authorized_superuser.delete(f"{BASE_URL}{non_existent}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-        db_event = await get_event_by_id(non_existent)
+        db_event = await db_connection.get(Event, non_existent)
         assert db_event is None
+
+    async def test_delete_event_with_existing_tickets(
+        self,
+        normal_user: User,
+        event_in_db: Event,
+        db_connection: AsyncSession,
+        ticket_type_in_db: TicketType,
+        authorized_superuser: AsyncClient,
+    ) -> None:
+        ticket = TicketFactory.build(owner=normal_user, ticket_type=ticket_type_in_db)
+        db_connection.add(ticket)
+        await db_connection.commit()
+
+        response = await authorized_superuser.delete(f"{BASE_URL}{event_in_db.id}")
+        assert response.status_code == status.HTTP_409_CONFLICT
+
+        db_connection.expunge_all()
