@@ -58,7 +58,7 @@ class TestTicketTypeCreate:
         pytest.fail("Error not found")
 
     @pytest.mark.parametrize("field", ["name", "price", "tickets_quantity", "event_id"])
-    def test_missing_fields(self, field) -> None:
+    def test_missing_fields(self, field: str) -> None:
         payload = self.VALID_PAYLOAD.copy()
         payload[field] = None
 
@@ -91,7 +91,7 @@ class TestTicketTypeUpdateSchema:
             {"tickets_quantity": -100},
         ],
     )
-    def test_invalid_partial_update(self, update_payload) -> None:
+    def test_invalid_partial_update(self, update_payload: dict[str, Any]) -> None:
         with pytest.raises(ValidationError):
             TicketTypeUpdate(**update_payload)
 
