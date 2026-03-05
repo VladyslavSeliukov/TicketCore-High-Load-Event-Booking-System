@@ -6,6 +6,8 @@ from src.schemas.ticket_type import TicketTypeResponse
 
 
 class EventBase(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     title: str = Field(
         ...,
         min_length=1,
@@ -43,6 +45,8 @@ class EventResponse(EventBase):
 
 
 class EventUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     title: str | None = Field(
         None,
         min_length=1,

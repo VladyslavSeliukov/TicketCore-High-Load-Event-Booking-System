@@ -2,6 +2,8 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserBase(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     email: EmailStr = Field(
         ...,
         min_length=5,
@@ -30,6 +32,8 @@ class UserResponse(UserBase):
 
 
 class UserUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     email: EmailStr | None = Field(
         None,
         min_length=5,
@@ -54,6 +58,8 @@ class UserUpdate(BaseModel):
 
 class PasswordChange(BaseModel):
     old_password: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     new_password: str = Field(
         min_length=8,
         max_length=100,

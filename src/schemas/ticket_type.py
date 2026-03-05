@@ -2,6 +2,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class TicketTypeBase(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     name: str = Field(
         ...,
         min_length=1,
@@ -27,6 +29,8 @@ class TicketTypeResponse(TicketTypeCreate):
 
 
 class TicketTypeUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     name: str | None = Field(
         None,
         min_length=1,
