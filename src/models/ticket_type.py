@@ -34,6 +34,7 @@ class TicketType(Base):
     __table_args__ = (
         CheckConstraint(sqltext="price >= 0", name="check_ticket_price"),
         CheckConstraint(sqltext="tickets_quantity > 0", name="check_ticket_quantity"),
+        CheckConstraint(sqltext="tickets_sold >= 0", name="check_ticket_sold"),
         CheckConstraint(
             sqltext="tickets_quantity >= tickets_sold", name="check_sold_limit"
         ),
