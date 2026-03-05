@@ -1,6 +1,4 @@
-from datetime import datetime
-
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, PositiveInt
 
 from src.schemas.ticket_type import TicketTypeResponse
 
@@ -15,8 +13,8 @@ class EventBase(BaseModel):
         description="Title of the event",
         examples=["Korn Europe Tour 2026"],
     )
-    date: datetime = Field(
-        ..., description="Date and time of the event", examples=["2026-01-01T14:15:45"]
+    date: AwareDatetime = Field(
+        ..., description="Date and time of the event", examples=["2026-01-01T14:15:45Z"]
     )
 
     country: str = Field(
@@ -47,7 +45,12 @@ class EventCreate(EventBase):
 
 
 class EventResponse(EventBase):
-    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+    id: PositiveInt
+
+
+class EventDetailResponse(EventResponse):
     ticket_types: list[TicketTypeResponse]
 
     model_config = ConfigDict(from_attributes=True)
@@ -63,8 +66,8 @@ class EventUpdate(BaseModel):
         description="Title of the event",
         examples=["Korn Europe Tour 2026"],
     )
-    date: datetime | None = Field(
-        None, description="Data of the event", examples=["2026-01-01T14:15:45"]
+    date: AwareDatetime | None = Field(
+        None, description="Data of the event", examples=["2026-01-01T14:15:45Z"]
     )
 
     country: str | None = Field(
