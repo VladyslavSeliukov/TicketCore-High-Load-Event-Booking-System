@@ -50,5 +50,9 @@ class TicketTypeDeleteError(TicketTypeError):
     pass
 
 
+class TicketTypeQuantity(TicketTypeError):
+    pass
+
+
 class EmptyUpdateDataError(Exception):
     pass

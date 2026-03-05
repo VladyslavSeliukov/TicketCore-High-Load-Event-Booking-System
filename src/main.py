@@ -15,6 +15,7 @@ from src.core.exception import (
     TicketsSoldOutError,
     TicketTypeDeleteError,
     TicketTypeNotFoundError,
+    TicketTypeQuantity,
     UserAlreadyExistsError,
 )
 
@@ -57,6 +58,7 @@ async def not_found_exception_handler(request: Request, exc: Exception) -> JSONR
     )
 
 
+@app.exception_handler(TicketTypeQuantity)
 @app.exception_handler(TicketTypeDeleteError)
 @app.exception_handler(EventDeleteError)
 @app.exception_handler(UserAlreadyExistsError)
