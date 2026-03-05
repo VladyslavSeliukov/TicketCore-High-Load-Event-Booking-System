@@ -8,7 +8,7 @@ from tests.factories import TicketTypeFactory
 
 @pytest.mark.asyncio
 class TestTicketTypeModel:
-    async def test_valid(self, db_connection: AsyncSession, event_in_db: Event):
+    async def test_valid(self, db_connection: AsyncSession, event_in_db: Event) -> None:
         ticket_type = TicketTypeFactory.build(event=event_in_db)
 
         db_connection.add(ticket_type)
