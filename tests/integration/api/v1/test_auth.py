@@ -76,7 +76,11 @@ class TestAuthSignup:
         "missing_field, payload", get_missing_field_cases(SIGNUP_PAYLOAD)
     )
     async def test_signup_missing_fields(
-        self, client: AsyncClient, missing_field: str, payload: list[str]
+        self, client: AsyncClient, missing_field: str, payload: dict[str, str]
+    ) -> None:
+        response = await client.post(self.BASE_URL, json=payload)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
     @pytest.mark.parametrize(
         "invalid_email",
         [
@@ -176,7 +180,7 @@ class TestAuthLogin:
     async def test_login_missing_fields(
         self, client: AsyncClient, missing_field: AsyncSession, payload: dict[str, Any]
     ) -> None:
-        response = await client.post(self.BASE_URL, json=payload)
+        response = await client.post(self.BASE_URL, data=payload)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_expired_token(
