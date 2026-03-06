@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 
+from arq import ArqRedis
 from sqlalchemy import exists, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,8 +17,9 @@ from src.schemas import TicketCreate
 
 
 class TicketService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, arq_pool: ArqRedis) -> None:
         self.db = session
+        self.arq_pool = arq_pool
 
     async def create(self, user_id: int, ticket_data: TicketCreate) -> Ticket:
         ticket_type_query = (
@@ -44,6 +46,10 @@ class TicketService:
             await self.db.refresh(new_ticket)
 
             logger.info(f"Ticket created: {new_ticket.id}")
+
+            await self.arq_pool.enqueue_job(
+                "release_unpaid_ticket", new_ticket.id, _defer_by=900
+            )
         except SQLAlchemyError:
             await self.db.rollback()
             raise
