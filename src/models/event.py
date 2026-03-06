@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.db.base import Base
+from src.db.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from src.models.ticket_type import TicketType
 
 
-class Event(Base):
+class Event(Base, TimestampMixin):
     __tablename__ = "events"
 
     id: Mapped[int] = mapped_column(primary_key=True)

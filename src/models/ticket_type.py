@@ -3,14 +3,14 @@ from typing import TYPE_CHECKING
 from sqlalchemy import CheckConstraint, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.db.base import Base
+from src.db.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from src.models.event import Event
     from src.models.ticket import Ticket
 
 
-class TicketType(Base):
+class TicketType(Base, TimestampMixin):
     __tablename__ = "ticket_types"
 
     id: Mapped[int] = mapped_column(primary_key=True)

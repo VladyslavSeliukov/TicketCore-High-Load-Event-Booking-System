@@ -3,13 +3,13 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.db.base import Base
+from src.db.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from src.models.ticket import Ticket
 
 
-class User(Base):
+class User(Base, TimestampMixin):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)

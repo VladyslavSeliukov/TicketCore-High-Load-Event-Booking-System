@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.db.base import Base
+from src.db.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from src.models.ticket_type import TicketType
@@ -17,7 +17,7 @@ class TicketStatus(enum.Enum):
     CANCELED = "CANCELED"
 
 
-class Ticket(Base):
+class Ticket(Base, TimestampMixin):
     __tablename__ = "tickets"
 
     id: Mapped[int] = mapped_column(primary_key=True)
