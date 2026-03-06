@@ -68,3 +68,15 @@ class IdempotencyConflictError(IdempotencyError):
 
 class IdempotencyStateError(IdempotencyError):
     pass
+
+
+class PaymentError(Exception):
+    pass
+
+
+class TicketReservationExpireError(PaymentError):
+    pass
+
+
+class TicketAlreadyPaidError(PaymentError):
+    pass

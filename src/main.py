@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import JSONResponse
 
-from src.api.v1 import auth, events, ticket_type, tickets
+from src.api.v1 import auth, events, payment, ticket_type, tickets
 from src.core import logger
 from src.core.config import settings
 from src.core.exception import (
@@ -16,7 +16,9 @@ from src.core.exception import (
     IdempotencyStateError,
     InactiveUserError,
     InvalidCredentialsError,
+    TicketAlreadyPaidError,
     TicketNotFoundError,
+    TicketReservationExpireError,
     TicketsSoldOutError,
     TicketTypeDeleteError,
     TicketTypeNotFoundError,
@@ -49,12 +51,15 @@ app.include_router(
     tickets.router, prefix=f"{settings.API_V1_STR}/tickets", tags=["Tickets"]
 )
 app.include_router(
-    events.router, prefix=f"{settings.API_V1_STR}/events", tags=["Events"]
+    payment.router, prefix=f"{settings.API_V1_STR}/payment", tags=["Payment"]
 )
 app.include_router(
     ticket_type.router,
     prefix=f"{settings.API_V1_STR}/ticket_type",
     tags=["Ticket Type"],
+)
+app.include_router(
+    events.router, prefix=f"{settings.API_V1_STR}/events", tags=["Events"]
 )
 
 
@@ -77,6 +82,7 @@ async def not_found_exception_handler(request: Request, exc: Exception) -> JSONR
     )
 
 
+@app.exception_handler(TicketAlreadyPaidError)
 @app.exception_handler(IdempotencyStateError)
 @app.exception_handler(IdempotencyConflictError)
 @app.exception_handler(TicketTypeQuantity)
@@ -99,6 +105,7 @@ async def internal_exception_handler(request: Request, exc: Exception) -> JSONRe
     )
 
 
+@app.exception_handler(TicketReservationExpireError)
 @app.exception_handler(EmptyUpdateDataError)
 async def empty_update_data_exception_handler(
     request: Request, exc: Exception
