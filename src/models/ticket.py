@@ -1,3 +1,4 @@
+import enum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey
@@ -8,6 +9,12 @@ from src.db.base import Base
 if TYPE_CHECKING:
     from src.models.ticket_type import TicketType
     from src.models.user import User
+
+
+class TicketStatus(enum.Enum):
+    RESERVED = "RESERVED"
+    SOLD = "SOLD"
+    CANCELED = "CANCELED"
 
 
 class Ticket(Base):
@@ -27,6 +34,10 @@ class Ticket(Base):
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
     owner: Mapped["User"] = relationship("User", back_populates="tickets")
+
+    status: Mapped[TicketStatus] = mapped_column(
+        default=TicketStatus.RESERVED, nullable=False, index=True
+    )
 
     @property
     def event_title(self) -> str:
