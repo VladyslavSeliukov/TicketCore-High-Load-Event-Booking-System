@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.core import logger
+from src.core import logger, settings
 from src.core.exception import (
     TicketNotFoundError,
     TicketsSoldOutError,
@@ -48,7 +48,9 @@ class TicketService:
             logger.info(f"Ticket created: {new_ticket.id}")
 
             await self.arq_pool.enqueue_job(
-                "release_unpaid_ticket", new_ticket.id, _defer_by=900
+                "release_unpaid_ticket",
+                new_ticket.id,
+                _defer_by=settings.TICKET_RESERVATION_TIME_SECONDS,
             )
         except SQLAlchemyError:
             await self.db.rollback()

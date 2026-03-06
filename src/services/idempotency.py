@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 from redis.asyncio import Redis
 
+from src.core import settings
 from src.core.exception import IdempotencyConflictError, IdempotencyStateError
 from src.schemas import IdempotencyRecord
 
@@ -17,7 +18,7 @@ else:
 class IdempotencyService:
     def __init__(self, redis_client: RedisClient):
         self.redis = redis_client
-        self.ttl_seconds = 86400
+        self.ttl_seconds = settings.REDIS_TTL_SECONDS
 
     def _generate_key(self, user_id: int, action: str, idempotency_key: str) -> str:
         return f"idem:u{user_id}:{action}:{idempotency_key}"

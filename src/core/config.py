@@ -14,7 +14,6 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     DEFAULT_PAGE_LIMIT: int = 100
-    DEFAULT_OFFSET: int = 0
 
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
@@ -24,6 +23,9 @@ class Settings(BaseSettings):
 
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
+    REDIS_TTL_SECONDS: int = 10
+
+    TICKET_RESERVATION_TIME_SECONDS: int = 900
 
     @property
     def DATABASE_URL(self) -> str:
