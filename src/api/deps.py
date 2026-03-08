@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated
 
 import jwt
 from arq import ArqRedis
@@ -23,10 +23,7 @@ from src.services.payment import PaymentService
 from src.services.ticket import TicketService
 from src.services.ticket_type import TicketTypeService
 
-if TYPE_CHECKING:
-    RedisClient = Redis[Any]
-else:
-    RedisClient = Redis
+RedisClient = Redis
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 

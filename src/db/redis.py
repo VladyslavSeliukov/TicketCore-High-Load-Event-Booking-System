@@ -1,19 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-
 from arq import ArqRedis
 from arq.connections import RedisSettings, create_pool
 from redis.asyncio import ConnectionPool, Redis
 
 from src.core import settings
 
-if TYPE_CHECKING:
-    RedisPool = ConnectionPool[Any]
-    RedisClient = Redis[Any]
-else:
-    RedisPool = ConnectionPool
-    RedisClient = Redis
+RedisPool = ConnectionPool
+RedisClient = Redis
 
 redis_pool: RedisPool | None = None
 arq_pool: ArqRedis | None = None
@@ -44,7 +38,7 @@ async def close_redis_pool() -> None:
         await redis_pool.disconnect()
 
     if arq_pool:
-        await arq_pool.close()
+        await arq_pool.aclose()
 
 
 async def get_redis() -> RedisClient:

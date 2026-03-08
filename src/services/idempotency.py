@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import ValidationError
 from redis.asyncio import Redis
@@ -9,10 +10,7 @@ from src.core import settings
 from src.core.exception import IdempotencyConflictError, IdempotencyStateError
 from src.schemas import IdempotencyRecord
 
-if TYPE_CHECKING:
-    RedisClient = Redis[Any]
-else:
-    RedisClient = Redis
+RedisClient = Redis
 
 
 class IdempotencyService:
