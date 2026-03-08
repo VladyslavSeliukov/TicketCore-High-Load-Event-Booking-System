@@ -86,16 +86,8 @@ async def clean_tables() -> None:
 
 @pytest.fixture
 async def db_connection() -> AsyncGenerator[AsyncSession, None]:
-    connection = await test_engine.connect()
-    transaction = await connection.begin()
-
-    session = AsyncSession(bind=connection, expire_on_commit=False)
-
-    yield session
-
-    await session.close()
-    await transaction.rollback()
-    await connection.close()
+    async with async_session_maker() as session:
+        yield session
 
 
 @pytest.fixture(autouse=True)
