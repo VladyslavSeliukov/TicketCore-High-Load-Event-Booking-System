@@ -3,6 +3,7 @@ from typing import Any
 import pytest
 from fastapi import status
 from httpx import AsyncClient
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import Ticket, TicketType, User
@@ -86,6 +87,71 @@ class TestTicketPost:
     ) -> None:
         response = await authorized_user.post(BASE_URL, json=invalid_payload)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    class TestIdempotency:
+        async def test_valid(
+            self,
+            payload: TicketCreate,
+            db_connection: AsyncSession,
+            authorized_user: AsyncClient,
+            idempotency_header: dict[str, str],
+        ) -> None:
+            response_first = await authorized_user.post(
+                BASE_URL,
+                json=payload.model_dump(mode="json"),
+                headers=idempotency_header,
+            )
+            assert response_first.status_code == status.HTTP_201_CREATED
+
+            response_second = await authorized_user.post(
+                BASE_URL,
+                json=payload.model_dump(mode="json"),
+                headers=idempotency_header,
+            )
+            assert response_second.status_code == status.HTTP_201_CREATED
+
+            query = select(func.count(Ticket.id)).where(
+                Ticket.ticket_type_id == payload.ticket_type_id
+            )
+            tickets_count = await db_connection.scalar(query)
+
+            assert tickets_count == 1
+
+        async def test_key_mismatch_payload(
+            self,
+            payload: TicketCreate,
+            db_connection: AsyncSession,
+            authorized_user: AsyncClient,
+            idempotency_header: dict[str, str],
+        ) -> None:
+            response_valid = await authorized_user.post(
+                BASE_URL,
+                json=payload.model_dump(mode="json"),
+                headers=idempotency_header,
+            )
+            assert response_valid.status_code == status.HTTP_201_CREATED
+
+            mismatched_payload = payload.model_copy(update={"ticket_type_id": 999})
+
+            response_invalid = await authorized_user.post(
+                BASE_URL,
+                json=mismatched_payload.model_dump(mode="json"),
+                headers=idempotency_header,
+            )
+
+            assert response_invalid.status_code == status.HTTP_409_CONFLICT
+
+            query_valid = select(func.count(Ticket.id)).where(
+                Ticket.ticket_type_id == payload.ticket_type_id
+            )
+            count_valid = await db_connection.scalar(query_valid)
+            assert count_valid == 1
+
+            mismatched_query = select(func.count(Ticket.id)).where(
+                Ticket.ticket_type_id == mismatched_payload.ticket_type_id
+            )
+            mismatched_count = await db_connection.scalar(mismatched_query)
+            assert mismatched_count == 0
 
 
 @pytest.mark.asyncio
