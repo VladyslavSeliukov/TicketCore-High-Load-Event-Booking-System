@@ -58,11 +58,24 @@ select = [
     "I",
     "B",
     "UP",
+    "D"
 ]
-ignore = ["B008"]
+ignore = [
+    "B008",
+    "D100",
+    "D104",
+    "D106",
+    "D107",
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D"]
 
 [tool.mypy]
 python_version = "3.12"
