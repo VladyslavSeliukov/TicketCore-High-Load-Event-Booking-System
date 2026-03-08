@@ -16,4 +16,17 @@ async def ticket_payment(
     user: Annotated[User, Depends(get_current_user)],
     payment_service: PaymentServiceDep,
 ) -> Ticket:
+    """Process a payment for a reserved ticket.
+
+    Transitions the ticket status to 'SOLD'. Users can only pay for
+    their own reserved tickets.
+
+    Args:
+        ticket_id: The unique identifier of the ticket to pay for.
+        user: The authenticated user making the payment.
+        payment_service: Injected payment service dependency.
+
+    Returns:
+        The updated Ticket model reflecting the new 'SOLD' status.
+    """
     return await payment_service.pay_for_ticket(ticket_id=ticket_id, owner_id=user.id)

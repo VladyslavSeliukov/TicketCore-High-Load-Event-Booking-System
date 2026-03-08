@@ -13,10 +13,31 @@ from src.models.ticket import TicketStatus
 
 
 class PaymentService:
+    """Service for processing ticket payments and managing state transitions."""
+
     def __init__(self, session: AsyncSession) -> None:
         self.db = session
 
     async def pay_for_ticket(self, ticket_id: int, owner_id: int) -> Ticket:
+        """Process payment for a reserved ticket and mark it as sold.
+
+        Uses a database lock (`with_for_update`) to prevent race conditions
+        during concurrent payment attempts.
+
+        Args:
+            ticket_id: The ID of the ticket to pay for.
+            owner_id: The ID of the user who owns the ticket.
+
+        Returns:
+            The updated Ticket instance with 'SOLD' status.
+
+        Raises:
+            TicketNotFoundError: If the ticket does not exist
+            or belongs to another user.
+            TicketAlreadyPaidError: If the ticket is already in 'SOLD' status.
+            TicketReservationExpireError: If the ticket reservation was 'CANCELED'.
+            SQLAlchemyError: If the database transaction fails.
+        """
         ticket_query = (
             select(Ticket)
             .where(Ticket.id == ticket_id)

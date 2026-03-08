@@ -4,6 +4,8 @@ from src.schemas.ticket_type import TicketTypeResponse
 
 
 class EventBase(BaseModel):
+    """Base schema containing common event attributes."""
+
     model_config = ConfigDict(str_strip_whitespace=True)
 
     title: str = Field(
@@ -41,22 +43,30 @@ class EventBase(BaseModel):
 
 
 class EventCreate(EventBase):
+    """Payload schema for creating a new event."""
+
     pass
 
 
 class EventResponse(EventBase):
+    """Basic public representation of an event returned by the API."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: PositiveInt
 
 
 class EventDetailResponse(EventResponse):
+    """Detailed representation of an event, including its available ticket types."""
+
     ticket_types: list[TicketTypeResponse]
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class EventUpdate(BaseModel):
+    """Payload schema for partially updating an event's attributes."""
+
     model_config = ConfigDict(str_strip_whitespace=True)
 
     title: str | None = Field(

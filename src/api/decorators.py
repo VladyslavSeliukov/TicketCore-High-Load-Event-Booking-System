@@ -14,8 +14,23 @@ F = TypeVar("F", bound=Callable[..., Any])
 def idempotent(
     action: str, key_param_name: str = "idempotency_key"
 ) -> Callable[[F], F]:
+    """Ensure API endpoint idempotency using Redis locks.
+
+    Intercepts the request to check for a valid idempotency key. If found,
+    it queries the IdempotencyService to either return a cached response
+    (if already processed) or lock the request to prevent concurrent duplicates.
+    Automatically caches the response upon successful execution.
+
+    Args:
+        action: A unique string identifying the operation (e.g., 'create_ticket').
+        key_param_name: The expected kwarg name for the idempotency key.
+
+    Returns:
+        A decorator function that wraps the FastAPI endpoint.
+    """
 
     def decorator(func: F) -> F:
+
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             idempotency_key = kwargs.get(key_param_name)

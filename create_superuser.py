@@ -8,6 +8,16 @@ from src.models import User
 
 
 async def create_superuser(email: str, password: str) -> None:
+    """Bootstrap an initial superuser account via CLI.
+
+    Checks if a user with the given email already exists. If not, creates a new
+    User record with 'is_superuser=True' and hashes the provided password.
+    Used for initial database setup and administration.
+
+    Args:
+        email: The email address for the new admin account.
+        password: The raw password to be hashed and stored.
+    """
     async with AsyncSessionLocal() as session:
         query = select(User).where(User.email == email)
         result = await session.execute(query)

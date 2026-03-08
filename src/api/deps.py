@@ -36,6 +36,19 @@ IdempotencyHeader = Annotated[
 async def get_current_user(
     token: Annotated[str, Depends(reusable_oauth2)], session: DBDep
 ) -> User:
+    """Validate the JWT access token and retrieve the current user.
+
+    Decodes the Bearer token to extract the user ID (`sub`). Verifies
+    the token's signature and expiration, then fetches the corresponding
+    User model from the database.
+
+    Returns:
+        The authenticated User instance.
+
+    Raises:
+        HTTPException: 401 Unauthorized if the token is missing, invalid,
+            expired, or if the user no longer exists in the database.
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -75,6 +88,14 @@ async def get_current_user(
 
 
 async def get_current_superuser(current_user: User = Depends(get_current_user)) -> User:
+    """Verify that the currently authenticated user has superuser privileges.
+
+    Returns:
+        The authenticated User instance if they are a superuser.
+
+    Raises:
+        HTTPException: 403 Forbidden if the user lacks superuser rights.
+    """
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="User doesn't have permission"
@@ -85,28 +106,34 @@ async def get_current_superuser(current_user: User = Depends(get_current_user)) 
 async def get_ticket_service(
     session: DBDep, arq_pool: ArqRedis = Depends(get_arq_pool)
 ) -> TicketService:
+    """Provide an initialized TicketService instance for dependency injection."""
     return TicketService(session, arq_pool)
 
 
 async def get_event_service(session: DBDep) -> EventService:
+    """Provide an initialized EventService instance for dependency injection."""
     return EventService(session)
 
 
 async def get_auth_service(session: DBDep) -> AuthService:
+    """Provide an initialized EventService instance for dependency injection."""
     return AuthService(session)
 
 
 async def get_ticket_type_service(session: DBDep) -> TicketTypeService:
+    """Provide an initialized TicketTypeService instance for dependency injection."""
     return TicketTypeService(session)
 
 
 async def get_idempotency_service(
     redis: RedisClient = Depends(get_redis),
 ) -> IdempotencyService:
+    """Provide an initialized IdempotencyService instance for dependency injection."""
     return IdempotencyService(redis)
 
 
 async def get_payment_service(session: DBDep) -> PaymentService:
+    """Provide an initialized PaymentService instance for dependency injection."""
     return PaymentService(session)
 
 

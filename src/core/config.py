@@ -6,6 +6,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 class Settings(BaseSettings):
+    """Application configuration settings loaded from environment variables.
+
+    Uses Pydantic BaseSettings to automatically validate and cast
+    environment variables to the correct Python types.
+    """
+
     PROJECT_NAME: str = "TicketCore"
     PROJECT_VERSION: str = "0.1.0"
 
@@ -33,6 +39,11 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL(self) -> str:
+        """Construct the asynchronous PostgreSQL connection string.
+
+        Combines individual database credentials into a fully qualified
+        asyncpg URL format required by SQLAlchemy 2.0.
+        """
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
@@ -40,6 +51,7 @@ class Settings(BaseSettings):
 
     @property
     def REDIS_URL(self) -> str:
+        """Construct the Redis connection string."""
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
     model_config = SettingsConfigDict(

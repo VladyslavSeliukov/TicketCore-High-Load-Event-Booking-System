@@ -9,6 +9,8 @@ from pydantic import (
 
 
 class UserBase(BaseModel):
+    """Base schema containing common user attributes."""
+
     model_config = ConfigDict(str_strip_whitespace=True)
 
     email: EmailStr = Field(
@@ -22,6 +24,8 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
+    """Payload schema for user registration."""
+
     password: str = Field(
         ...,
         min_length=8,
@@ -33,12 +37,15 @@ class UserCreate(UserBase):
     @field_validator("email", mode="before")
     @classmethod
     def lowercase_email(cls, v: str) -> str:
+        """Cast email string to lowercase before validation."""
         if isinstance(v, str):
             return v.lower()
         return v
 
 
 class UserResponse(UserBase):
+    """Publicly exposed user details returned by the API."""
+
     id: PositiveInt
     is_superuser: bool = False
 
@@ -46,6 +53,8 @@ class UserResponse(UserBase):
 
 
 class UserUpdate(BaseModel):
+    """Payload schema for partially updating a user's profile."""
+
     model_config = ConfigDict(str_strip_whitespace=True)
 
     email: EmailStr | None = Field(
@@ -69,12 +78,15 @@ class UserUpdate(BaseModel):
     @field_validator("email", mode="before")
     @classmethod
     def lowercase_email(cls, v: str | None) -> str | None:
+        """Cast email string to lowercase before validation if provided."""
         if isinstance(v, str):
             return v.lower()
         return v
 
 
 class PasswordChange(BaseModel):
+    """Payload schema for securely changing a user's password."""
+
     model_config = ConfigDict(str_strip_whitespace=True)
 
     old_password: str = Field(

@@ -10,6 +10,12 @@ if TYPE_CHECKING:
 
 
 class User(Base, TimestampMixin):
+    """Represents a registered user in the system.
+
+    Manages authentication credentials, access roles (active/superuser),
+    and serves as the root owner for purchased or reserved tickets.
+    """
+
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)

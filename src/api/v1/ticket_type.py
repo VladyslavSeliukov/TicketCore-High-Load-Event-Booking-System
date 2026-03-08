@@ -36,6 +36,21 @@ async def ticket_type_create(
     idempotency_service: IdempotencyServiceDep,
     idempotency_key: IdempotencyHeader = None,
 ) -> TicketType:
+    """Create a new ticket type for an event. Restricted to superusers.
+
+    This endpoint is idempotent to prevent duplicate ticket types
+    from being created in case of network retries.
+
+    Args:
+        ticket_type_data: Payload containing price, quantity, and event ID.
+        ticket_type_service: Injected ticket type service dependency.
+        admin: The authenticated superuser making the request.
+        idempotency_service: Injected idempotency service dependency.
+        idempotency_key: Unique client-generated key.
+
+    Returns:
+        The newly created TicketType model.
+    """
     return await ticket_type_service.create(ticket_type_data)
 
 
@@ -48,6 +63,15 @@ async def ticket_type_get(
     ticket_type_id: int,
     ticket_type_service: TicketTypeServiceDep,
 ) -> TicketType:
+    """Retrieve details of a specific ticket type.
+
+    Args:
+        ticket_type_id: The unique identifier of the ticket type.
+        ticket_type_service: Injected ticket type service dependency.
+
+    Returns:
+        The TicketType model.
+    """
     return await ticket_type_service.get(ticket_type_id)
 
 
@@ -62,6 +86,17 @@ async def ticket_type_get_all_for_event(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = settings.DEFAULT_PAGE_LIMIT,
 ) -> Sequence[TicketType]:
+    """Retrieve a paginated list of all ticket types for a specific event.
+
+    Args:
+        event_id: The ID of the target event.
+        ticket_type_service: Injected ticket type service dependency.
+        offset: Number of items to skip.
+        limit: Maximum number of items to return per page.
+
+    Returns:
+        A list of TicketType models associated with the event.
+    """
     return await ticket_type_service.get_all_for_event(
         event_id=event_id, offset=offset, limit=limit
     )
@@ -76,6 +111,13 @@ async def ticket_type_delete(
     ticket_type_service: TicketTypeServiceDep,
     admin: Annotated[User, Depends(get_current_superuser)],
 ) -> None:
+    """Delete a specific ticket type. Restricted to superusers.
+
+    Args:
+        ticket_type_id: The unique identifier of the ticket type to delete.
+        ticket_type_service: Injected ticket type service dependency.
+        admin: The authenticated superuser making the request.
+    """
     await ticket_type_service.delete(ticket_type_id)
 
 
@@ -90,6 +132,23 @@ async def ticket_type_update(
     ticket_type_service: TicketTypeServiceDep,
     admin: Annotated[User, Depends(get_current_superuser)],
 ) -> TicketType:
+    """Update specific attributes of a ticket type. Restricted to superusers.
+
+    Only the fields provided in the payload will be updated; unset fields
+    will remain unchanged.
+
+    Args:
+        ticket_type_id: The unique identifier of the ticket type to update.
+        update_data: Payload containing the fields to modify.
+        ticket_type_service: Injected ticket type service dependency.
+        admin: The authenticated superuser making the request.
+
+    Returns:
+        The updated TicketType model.
+
+    Raises:
+        EmptyUpdateDataError: If the request payload contains no valid fields.
+    """
     if not update_data.model_dump(exclude_unset=True):
         raise EmptyUpdateDataError("No field provided for update")
 

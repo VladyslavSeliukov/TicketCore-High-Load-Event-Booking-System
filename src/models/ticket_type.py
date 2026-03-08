@@ -11,6 +11,13 @@ if TYPE_CHECKING:
 
 
 class TicketType(Base, TimestampMixin):
+    """Represents a pricing category and inventory for a specific event.
+
+    Defines pricing and available capacity. Enforces database-level check constraints
+    to prevent negative prices, invalid quantities, and overselling
+    (tickets_sold cannot exceed tickets_quantity).
+    """
+
     __tablename__ = "ticket_types"
 
     id: Mapped[int] = mapped_column(primary_key=True)

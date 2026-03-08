@@ -14,6 +14,12 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Provide a scoped asynchronous database session for FastAPI endpoints.
+
+    Yields a new session per request. Automatically rolls back transactions
+    if an unhandled exception occurs during the request lifecycle,
+    and ensures the session is always closed afterward.
+    """
     async with AsyncSessionLocal() as session:
         try:
             yield session

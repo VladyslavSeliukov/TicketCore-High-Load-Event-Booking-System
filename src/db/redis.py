@@ -14,6 +14,11 @@ arq_pool: ArqRedis | None = None
 
 
 async def init_redis_pool() -> None:
+    """Initialize global Redis connection pools on application startup.
+
+    Creates separate async pools for general caching (RedisClient)
+    and background task queuing (ArqRedis) to prevent resource starvation.
+    """
     global redis_pool, arq_pool
 
     redis_pool = ConnectionPool.from_url(
@@ -32,6 +37,7 @@ async def init_redis_pool() -> None:
 
 
 async def close_redis_pool() -> None:
+    """Gracefully close all global Redis connections on application shutdown."""
     global redis_pool
 
     if redis_pool:
@@ -42,12 +48,14 @@ async def close_redis_pool() -> None:
 
 
 async def get_redis() -> RedisClient:
+    """Dependency provider for the general-purpose Redis client."""
     if not redis_pool:
         raise RuntimeError("Redis pool is not initialized")
     return Redis(connection_pool=redis_pool)
 
 
 async def get_arq_pool() -> ArqRedis:
+    """Dependency provider for the ARQ background task broker."""
     if not arq_pool:
         raise RuntimeError("Arq pool is not initialized")
     return arq_pool

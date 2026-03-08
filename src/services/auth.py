@@ -14,10 +14,24 @@ from src.schemas import PasswordChange, UserCreate
 
 
 class AuthService:
+    """Service for managing user authentication, registration, and account security."""
+
     def __init__(self, session: AsyncSession):
         self.db = session
 
     async def register(self, user_in: UserCreate) -> User:
+        """Register a new user and persist their credentials to the database.
+
+        Args:
+            user_in: Schema containing the email and raw password.
+
+        Returns:
+            The newly created User instance.
+
+        Raises:
+            UserAlreadyExistsError: If a user with the provided email already exists.
+            SQLAlchemyError: If the database transaction fails.
+        """
         check_query = select(exists().where(User.email == user_in.email))
         if await self.db.scalar(check_query):
             raise UserAlreadyExistsError("User with this email already exists")
@@ -42,6 +56,19 @@ class AuthService:
         return new_user
 
     async def authenticate(self, email: str, password: str) -> str:
+        """Verify user credentials and generate a JWT access token.
+
+        Args:
+            email: User's login email address.
+            password: Raw password string.
+
+        Returns:
+            A JWT access token valid for subsequent authenticated requests.
+
+        Raises:
+            InvalidCredentialsError: If the email or password does not match.
+            InactiveUserError: If the user account is disabled.
+        """
         user = await self.db.scalar(select(User).where(User.email == email))
 
         if not user or not verify_password(password, user.hashed_password):
@@ -56,6 +83,20 @@ class AuthService:
         return create_access_token(subject=user.id)
 
     async def change_password(self, user_id: int, passwords: PasswordChange) -> User:
+        """Update the user's password after validating the current one.
+
+        Args:
+            user_id: ID of the user performing the password change.
+            passwords: Schema containing the old and new password strings.
+
+        Returns:
+            The updated User instance.
+
+        Raises:
+            InvalidCredentialsError: If the user is not found
+            or the old password is incorrect.
+            SQLAlchemyError: If the database transaction fails.
+        """
         user = await self.db.get(User, user_id)
 
         if not user:

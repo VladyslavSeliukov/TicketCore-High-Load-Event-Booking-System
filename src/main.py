@@ -30,6 +30,11 @@ from src.db.redis import close_redis_pool, init_redis_pool
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Manage the application lifecycle context.
+
+    Initializes global infrastructure connections (like the Redis pool)
+    on startup and safely tears them down on application shutdown.
+    """
     logger.info("Initializing Redis Pool...")
     await init_redis_pool()
 
@@ -66,10 +71,16 @@ app.include_router(
 @app.exception_handler(InvalidCredentialsError)
 @app.exception_handler(InactiveUserError)
 async def auth_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Intercept authentication failures and map them to HTTP 401 Unauthorized.
+
+    Catches invalid credentials and inactive user attempts, ensuring the
+    response includes the standard 'WWW-Authenticate' header required
+    by OAuth2 specifications.
+    """
     return JSONResponse(
         status_code=status.HTTP_401_UNAUTHORIZED,
         content={"detail": str(exc)},
-        headers={"WWW-Authentication": "Bearer"},
+        headers={"WWW-Authenticate": "Bearer"},
     )
 
 
@@ -77,6 +88,11 @@ async def auth_exception_handler(request: Request, exc: Exception) -> JSONRespon
 @app.exception_handler(TicketNotFoundError)
 @app.exception_handler(EventNotFoundError)
 async def not_found_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Intercept missing resource errors and map them to HTTP 404 Not Found.
+
+    Provides a unified response format for any database queries that fail
+    to locate specific events, ticket types, or individual tickets.
+    """
     return JSONResponse(
         status_code=status.HTTP_404_NOT_FOUND, content={"detail": str(exc)}
     )
@@ -91,6 +107,12 @@ async def not_found_exception_handler(request: Request, exc: Exception) -> JSONR
 @app.exception_handler(UserAlreadyExistsError)
 @app.exception_handler(TicketsSoldOutError)
 async def conflict_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Intercept business logic conflicts and map them to HTTP 409 Conflict.
+
+    Catches specific domain errors (e.g., sold-out tickets, existing users)
+    and prevents them from crashing the application, returning a clean
+    client-facing error message.
+    """
     return JSONResponse(
         status_code=status.HTTP_409_CONFLICT, content={"detail": str(exc)}
     )
@@ -98,6 +120,11 @@ async def conflict_exception_handler(request: Request, exc: Exception) -> JSONRe
 
 @app.exception_handler(SQLAlchemyError)
 async def internal_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Catch unhandled database transactions and map them to HTTP 500.
+
+    Provides a global safety net for raw SQLAlchemy errors, hiding internal
+    database structure details from the client while logging the exact failure.
+    """
     logger.error(f"Global DB Error at {request.method} {request.url.path} : {str(exc)}")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -110,6 +137,11 @@ async def internal_exception_handler(request: Request, exc: Exception) -> JSONRe
 async def empty_update_data_exception_handler(
     request: Request, exc: Exception
 ) -> JSONResponse:
+    """Intercept bad requests and map them to HTTP 400 Bad Request.
+
+    Handles scenarios where the client provides invalid context for an operation,
+    such as submitting an empty update payload or paying for an expired reservation.
+    """
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(exc)}
     )
@@ -117,6 +149,12 @@ async def empty_update_data_exception_handler(
 
 @app.get("/", tags=["System"])
 async def main() -> dict[str, str]:
+    """Perform a basic system health check.
+
+    Returns the current operational status, application name,
+    and active deployment environment. Used by load balancers
+    and monitoring tools to verify the API is alive.
+    """
     return {
         "status": "healthy",
         "app": settings.PROJECT_NAME,

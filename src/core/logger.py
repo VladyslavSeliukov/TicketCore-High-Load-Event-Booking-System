@@ -7,7 +7,15 @@ from src.core.config import settings
 
 
 class JsonFormatter(logging.Formatter):
+    """Formatter that serializes log records into structured JSON objects.
+
+    Captures metadata (timestamp, module, line) and exception traces,
+    making the logs suitable for ingestion by centralized logging systems
+    (e.g., ELK stack, Datadog).
+    """
+
     def format(self, record: logging.LogRecord) -> str:
+        """Format the log record as a JSON string."""
         log_entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
@@ -27,6 +35,12 @@ class JsonFormatter(logging.Formatter):
 
 
 class ConsoleFormatter(logging.Formatter):
+    """Formatter that applies ANSI color codes to standard console output.
+
+    Improves readability during local development by coloring log levels
+    (e.g., red for errors, yellow for warnings).
+    """
+
     grey = "\x1b[38;20m"
     yellow = "\x1b[33;20m"
     red = "\x1b[31;20m"
@@ -43,6 +57,7 @@ class ConsoleFormatter(logging.Formatter):
     }
 
     def format(self, record: logging.LogRecord) -> str:
+        """Format the log record with ANSI color codes."""
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
 
@@ -50,6 +65,17 @@ class ConsoleFormatter(logging.Formatter):
 
 
 def get_logger(name: str) -> logging.Logger:
+    """Retrieve or create a globally configured logger instance.
+
+    Prevents the duplication of handlers on multiple calls and dynamically
+    sets the log level based on the application's environment settings.
+
+    Args:
+        name: The name of the logger (typically `__name__` of the calling module).
+
+    Returns:
+        A configured standard Python Logger instance.
+    """
     logger = logging.getLogger(name)
 
     if logger.handlers:

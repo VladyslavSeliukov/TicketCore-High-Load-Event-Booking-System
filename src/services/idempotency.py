@@ -15,6 +15,8 @@ RedisClient = Redis
 
 
 class IdempotencyService:
+    """Service for ensuring API request idempotency using Redis distributed locks."""
+
     def __init__(self, redis_client: RedisClient):
         self.redis = redis_client
         self.ttl_seconds = settings.REDIS_TTL_SECONDS
@@ -36,6 +38,28 @@ class IdempotencyService:
         idempotency_key: str,
         payload: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
+        """Verify idempotency state and acquire a lock for a new request.
+
+        Checks if a request with the same idempotency key was already processed
+        or is currently in progress. If processed, returns the cached response.
+        If new, locks the key to prevent concurrent identical requests.
+
+        Args:
+            user_id: The ID of the user making the request.
+            action: The specific API action (e.g., 'create_ticket').
+            idempotency_key: A unique string provided by the client.
+            payload: The request body, used to verify payload consistency.
+
+        Returns:
+            The cached response dictionary if the request was already completed,
+            otherwise None (indicating the lock was acquired).
+
+        Raises:
+            IdempotencyStateError: If there's a concurrent lock conflict
+            or corrupted cache.
+            IdempotencyConflictError: If the payload differs from the original request
+                or the original request is still processing.
+        """
         redis_key = self._generate_key(user_id, action, idempotency_key)
         current_hash = self._hash_payload(payload)
 
@@ -80,6 +104,18 @@ class IdempotencyService:
         response_data: dict[str, Any],
         payload: dict[str, Any] | None = None,
     ) -> None:
+        """Save the successful response of an operation to the idempotency cache.
+
+        Updates the Redis record to 'COMPLETED' status, storing the final response
+        so subsequent identical requests can return it directly.
+
+        Args:
+            user_id: The ID of the user.
+            action: The specific API action.
+            idempotency_key: The unique key provided by the client.
+            response_data: The JSON-serializable response to cache.
+            payload: The original request payload for hash consistency.
+        """
         redis_key = self._generate_key(user_id, action, idempotency_key)
         current_hash = self._hash_payload(payload)
 
@@ -90,5 +126,15 @@ class IdempotencyService:
         await self.redis.set(redis_key, record.model_dump_json(), ex=self.ttl_seconds)
 
     async def unlock(self, user_id: int, action: str, idempotency_key: str) -> None:
+        """Release the idempotency lock.
+
+        Typically used to clean up the lock if the underlying operation fails,
+        allowing the client to safely retry the request with the same key.
+
+        Args:
+            user_id: The ID of the user.
+            action: The specific API action.
+            idempotency_key: The unique key provided by the client.
+        """
         redis_key = self._generate_key(user_id, action, idempotency_key)
         await self.redis.delete(redis_key)
