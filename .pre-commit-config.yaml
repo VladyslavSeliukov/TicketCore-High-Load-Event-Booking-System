@@ -28,7 +28,7 @@ repos:
           "passlib",
           "types-passlib",
           "polyfactory",
-          "types-redis",
+          "redis>=5.0.0",
           "arq"
         ]
         args: [ "--config-file=pyproject.toml" ]
