@@ -6,7 +6,8 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import Ticket, TicketType, User
-from tests.factories import TicketFactory
+from src.schemas import TicketCreate
+from tests.factories import TicketFactory, TicketPayloadFactory
 
 BASE_URL = "/api/v1/tickets/"
 
@@ -14,12 +15,12 @@ BASE_URL = "/api/v1/tickets/"
 @pytest.mark.asyncio
 class TestTicketPost:
     @pytest.fixture
-    def payload(self, ticket_type_in_db: TicketType) -> dict[str, int]:
-        return {"ticket_type_id": ticket_type_in_db.id}
+    def payload(self, ticket_type_in_db: TicketType) -> TicketCreate:
+        return TicketPayloadFactory.build(ticket_type_id=ticket_type_in_db.id)
 
     async def test_valid(
         self,
-        payload: dict[str, int],
+        payload: TicketCreate,
         db_connection: AsyncSession,
         authorized_user: AsyncClient,
         ticket_type_in_db: TicketType,
@@ -27,11 +28,13 @@ class TestTicketPost:
         orig_sold = ticket_type_in_db.tickets_sold
         ticket_type_id = ticket_type_in_db.id
 
-        response = await authorized_user.post(BASE_URL, json=payload)
+        response = await authorized_user.post(
+            BASE_URL, json=payload.model_dump(mode="json")
+        )
         assert response.status_code == status.HTTP_201_CREATED
 
         data = response.json()
-        assert data["ticket_type_id"] == payload["ticket_type_id"]
+        assert data["ticket_type_id"] == payload.ticket_type_id
 
         db_connection.expire_all()
 
@@ -43,14 +46,14 @@ class TestTicketPost:
     async def test_access_denied(
         self,
         client: AsyncClient,
-        payload: dict[str, int],
+        payload: TicketCreate,
     ) -> None:
-        response = await client.post(BASE_URL, json=payload)
+        response = await client.post(BASE_URL, json=payload.model_dump(mode="json"))
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     async def test_sold_out(
         self,
-        payload: dict[str, int],
+        payload: TicketCreate,
         db_connection: AsyncSession,
         authorized_user: AsyncClient,
         ticket_type_in_db: TicketType,
@@ -59,7 +62,9 @@ class TestTicketPost:
         db_connection.add(ticket_type_in_db)
         await db_connection.commit()
 
-        response = await authorized_user.post(BASE_URL, json=payload)
+        response = await authorized_user.post(
+            BASE_URL, json=payload.model_dump(mode="json")
+        )
         assert response.status_code == status.HTTP_409_CONFLICT
 
     async def test_non_existent_ticket_type(self, authorized_user: AsyncClient) -> None:
