@@ -17,11 +17,34 @@ from src.schemas import TicketCreate
 
 
 class TicketService:
+    """Service for handling ticket reservations.
+
+    Manages ticket retrievals and inventory state.
+    """
+
     def __init__(self, session: AsyncSession, arq_pool: ArqRedis) -> None:
         self.db = session
         self.arq_pool = arq_pool
 
     async def create(self, user_id: int, ticket_data: TicketCreate) -> Ticket:
+        """Reserve a ticket for a user and schedule an expiration task.
+
+        Decrements the available ticket quantity for the specific ticket type.
+        If the ticket is successfully created, enqueues a background job (ARQ)
+        to release the reservation if it remains unpaid.
+
+        Args:
+            user_id: The ID of the user making the reservation.
+            ticket_data: Schema containing the ticket type ID.
+
+        Returns:
+            The newly created Ticket instance.
+
+        Raises:
+            TicketTypeNotFoundError: If the requested ticket type does not exist.
+            TicketsSoldOutError: If there are no available tickets left for this type.
+            SQLAlchemyError: If the database transaction fails.
+        """
         ticket_type_query = (
             update(TicketType)
             .where(TicketType.id == ticket_data.ticket_type_id)
@@ -59,6 +82,21 @@ class TicketService:
         return new_ticket
 
     async def get(self, owner_id: int, ticket_id: int) -> Ticket:
+        """Retrieve a specific ticket belonging to a user.
+
+        Eagerly loads the associated ticket type and event details.
+
+        Args:
+            owner_id: The ID of the user who owns the ticket.
+            ticket_id: The unique identifier of the ticket.
+
+        Returns:
+            The requested Ticket instance.
+
+        Raises:
+            TicketNotFoundError: If the ticket does not exist
+            or does not belong to the user.
+        """
         query = (
             select(Ticket)
             .options(selectinload(Ticket.ticket_type).joinedload(TicketType.event))
@@ -74,6 +112,16 @@ class TicketService:
     async def get_all_for_user(
         self, owner_id: int, offset: int, limit: int
     ) -> Sequence[Ticket]:
+        """Retrieve a paginated list of tickets owned by a specific user.
+
+        Args:
+            owner_id: The ID of the user.
+            offset: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A sequence of Ticket instances belonging to the user.
+        """
         query = (
             select(Ticket)
             .options(selectinload(Ticket.ticket_type).joinedload(TicketType.event))
@@ -85,6 +133,20 @@ class TicketService:
         return result.all()
 
     async def delete(self, owner_id: int, ticket_id: int) -> None:
+        """Cancel a ticket reservation and restore inventory.
+
+        Deletes the ticket record and increments the available quantity
+        for the associated ticket type.
+
+        Args:
+            owner_id: The ID of the user attempting to delete the ticket.
+            ticket_id: The unique identifier of the ticket.
+
+        Raises:
+            TicketNotFoundError: If the ticket does not exist
+            or does not belong to the user.
+            SQLAlchemyError: If the database transaction fails during restoration.
+        """
         query = (
             select(Ticket)
             .where(Ticket.id == ticket_id)

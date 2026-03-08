@@ -13,6 +13,11 @@ from src.models.ticket import TicketStatus
 
 
 async def startup(ctx: dict[str, Any]) -> None:
+    """Initialize infrastructure connections for the ARQ worker pool.
+
+    Creates the async SQLAlchemy engine and session maker that will be
+    injected into the context of all background tasks.
+    """
     logger.info("Starting Arq Worker...")
 
     engine = create_async_engine(
@@ -27,6 +32,7 @@ async def startup(ctx: dict[str, Any]) -> None:
 
 
 async def shutdown(ctx: dict[str, Any]) -> None:
+    """Gracefully close infrastructure connections during worker termination."""
     logger.info("Shutting down Arq Worker...")
 
     engine = ctx["engine"]
@@ -36,6 +42,19 @@ async def shutdown(ctx: dict[str, Any]) -> None:
 
 
 async def release_unpaid_ticket(ctx: dict[str, Any], ticket_id: int) -> None:
+    """Targeted background task to release a specific unpaid ticket reservation.
+
+    Executed after a predefined timeout. Checks if the ticket is still in
+    the 'RESERVED' state. If so, cancels the ticket and increments the
+    available inventory for the associated ticket type.
+
+    Args:
+        ctx: The ARQ worker context containing the database session maker.
+        ticket_id: The ID of the ticket to verify and potentially cancel.
+
+    Raises:
+        Exception: If the database transaction or inventory restoration fails.
+    """
     session_maker = ctx["session_maker"]
 
     async with session_maker() as session:
@@ -76,6 +95,16 @@ async def release_unpaid_ticket(ctx: dict[str, Any], ticket_id: int) -> None:
 
 
 async def reconcile_hung_tickets(ctx: dict[str, Any]) -> None:
+    """Periodic garbage collection task for stuck reservations.
+
+    Runs as a cron job to find any tickets that remained in 'RESERVED' status
+    past the expiration threshold (e.g., if the specific `release_unpaid_ticket`
+    task failed or was dropped). Cancels the stuck tickets and performs a
+    batch update to restore the inventory correctly.
+
+    Args:
+        ctx: The ARQ worker context containing the database session maker.
+    """
     session_maker = ctx["session_maker"]
     threshold = datetime.now(UTC) - timedelta(
         seconds=settings.TICKET_RESERVATION_TIME_SECONDS
@@ -112,6 +141,8 @@ async def reconcile_hung_tickets(ctx: dict[str, Any]) -> None:
 
 
 class WorkerSettings:
+    """Configuration class for the ARQ Redis worker."""
+
     redis_settings = RedisSettings(
         host=settings.REDIS_HOST, port=settings.REDIS_PORT, database=1
     )

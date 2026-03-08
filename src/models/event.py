@@ -11,6 +11,12 @@ if TYPE_CHECKING:
 
 
 class Event(Base, TimestampMixin):
+    """Represents a scheduled event available for ticket purchasing.
+
+    Holds details about the event's location and date. Acts as the parent
+    entity for various ticket types (e.g., VIP, Standard) linked to this event.
+    """
+
     __tablename__ = "events"
 
     id: Mapped[int] = mapped_column(primary_key=True)

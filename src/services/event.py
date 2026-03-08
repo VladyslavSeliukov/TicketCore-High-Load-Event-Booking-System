@@ -12,10 +12,26 @@ from src.schemas import EventCreate, EventUpdate
 
 
 class EventService:
+    """Service for managing event lifecycle.
+
+    Handles creation, retrieval, updates, and deletion.
+    """
+
     def __init__(self, session: AsyncSession) -> None:
         self.db = session
 
     async def create(self, event_data: EventCreate) -> Event:
+        """Create a new event and persist it to the database.
+
+        Args:
+            event_data: Schema containing event details like title, date, and location.
+
+        Returns:
+            The newly created Event instance.
+
+        Raises:
+            SQLAlchemyError: If the database transaction fails.
+        """
         new_event = Event(**event_data.model_dump())
         self.db.add(new_event)
         try:
@@ -30,6 +46,17 @@ class EventService:
         return new_event
 
     async def get(self, event_id: int) -> Event:
+        """Retrieve a specific event by its ID along with its associated ticket types.
+
+        Args:
+            event_id: The unique identifier of the event.
+
+        Returns:
+            The requested Event instance.
+
+        Raises:
+            EventNotFoundError: If no event with the given ID exists.
+        """
         query = (
             select(Event)
             .options(selectinload(Event.ticket_types))
@@ -41,6 +68,15 @@ class EventService:
         return event
 
     async def get_all(self, offset: int, limit: int) -> Sequence[Event]:
+        """Retrieve a paginated list of events.
+
+        Args:
+            offset: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A sequence of Event instances.
+        """
         query = (
             select(Event)
             .options(selectinload(Event.ticket_types))
@@ -51,6 +87,19 @@ class EventService:
         return result.all()
 
     async def delete(self, event_id: int) -> None:
+        """Remove an event from the database.
+
+        Prevents deletion if there are already tickets associated with this event
+        to maintain data integrity.
+
+        Args:
+            event_id: The unique identifier of the event to delete.
+
+        Raises:
+            EventNotFoundError: If the event does not exist.
+            EventDeleteError: If the event cannot be deleted due to existing tickets.
+            SQLAlchemyError: If the database transaction fails.
+        """
         event = await self.db.get(Event, event_id)
 
         if not event:
@@ -73,6 +122,21 @@ class EventService:
             raise
 
     async def update(self, event_id: int, update_data: EventUpdate) -> Event:
+        """Update specific fields of an existing event.
+
+        Ignores unset fields in the update payload, applying only the provided changes.
+
+        Args:
+            event_id: The unique identifier of the event to update.
+            update_data: Schema containing the fields to be updated.
+
+        Returns:
+            The updated Event instance.
+
+        Raises:
+            EventNotFoundError: If the event does not exist.
+            SQLAlchemyError: If the database transaction fails.
+        """
         event = await self.db.get(Event, event_id)
 
         if not event:

@@ -14,10 +14,22 @@ POSTGRES_INDEXES_NAMING_CONVENTION = {
 
 @declarative_mixin
 class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy models.
+
+    Enforces a unified naming convention for PostgreSQL constraints and indexes
+    to ensure safe and predictable Alembic autogenerate migrations.
+    """
+
     metadata = MetaData(naming_convention=POSTGRES_INDEXES_NAMING_CONVENTION)
 
 
 class TimestampMixin:
+    """Mixin to automatically add audit timestamps to models.
+
+    Provides 'created_at' (set on insert) and 'updated_at'
+    (updated automatically on modifications) fields.
+    """
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

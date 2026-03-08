@@ -27,6 +27,22 @@ async def create_ticket(
     idempotency_service: IdempotencyServiceDep,
     idempotency_key: IdempotencyHeader = None,
 ) -> Ticket:
+    """Reserve a ticket for a specific event.
+
+    Creates a temporary ticket reservation and locks the corresponding inventory.
+    This endpoint is idempotent; repeating the request with the same
+    Idempotency-Key header will safely return the cached response.
+
+    Args:
+        owner: The authenticated user making the reservation.
+        ticket: Payload containing the target ticket type ID.
+        ticket_service: Injected ticket service dependency.
+        idempotency_service: Injected idempotency service dependency.
+        idempotency_key: Unique client-generated key to prevent duplicate bookings.
+
+    Returns:
+        The details of the newly reserved Ticket.
+    """
     return await ticket_service.create(user_id=owner.id, ticket_data=ticket)
 
 
@@ -38,6 +54,19 @@ async def get_ticket(
     ticket_id: int,
     ticket_service: TicketServiceDep,
 ) -> Ticket:
+    """Retrieve detailed information about a specific ticket.
+
+    Includes nested information about the ticket type and the event.
+    Users can only access their own tickets.
+
+    Args:
+        owner: The authenticated user requesting the ticket.
+        ticket_id: The unique identifier of the ticket.
+        ticket_service: Injected ticket service dependency.
+
+    Returns:
+        The Ticket details including event and type relations.
+    """
     return await ticket_service.get(owner_id=owner.id, ticket_id=ticket_id)
 
 
@@ -50,6 +79,17 @@ async def get_tickets(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = settings.DEFAULT_PAGE_LIMIT,
 ) -> Sequence[Ticket]:
+    """Retrieve a paginated list of all tickets owned by the current user.
+
+    Args:
+        owner: The authenticated user making the request.
+        ticket_service: Injected ticket service dependency.
+        offset: The number of items to skip (for pagination).
+        limit: The maximum number of items to return per page.
+
+    Returns:
+        A list of Ticket models owned by the user.
+    """
     return await ticket_service.get_all_for_user(
         owner_id=owner.id, offset=offset, limit=limit
     )
@@ -61,4 +101,14 @@ async def delete_ticket(
     ticket_id: int,
     ticket_service: TicketServiceDep,
 ) -> None:
+    """Cancel a ticket reservation.
+
+    Deletes the ticket record and releases the reserved slot back into
+    the event's available inventory. Users can only cancel their own tickets.
+
+    Args:
+        owner: The authenticated user canceling the ticket.
+        ticket_id: The unique identifier of the ticket to cancel.
+        ticket_service: Injected ticket service dependency.
+    """
     await ticket_service.delete(owner_id=owner.id, ticket_id=ticket_id)
