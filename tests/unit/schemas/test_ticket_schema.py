@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.models import Event, Ticket, TicketType
+from src.models.ticket import TicketStatus
 from src.schemas import TicketCreate, TicketResponse
 
 
@@ -31,9 +32,14 @@ class TestTicketResponseSchema:
     def test_model_validate_from_orm(self) -> None:
         event = Event(title="Korn 2026")
         ticket_type = TicketType(id=1, event=event)
-        ticket = Ticket(id=42, ticket_type_id=1, ticket_type=ticket_type)
+        ticket = Ticket(
+            id=1,
+            ticket_type_id=1,
+            ticket_type=ticket_type,
+            status=TicketStatus.RESERVED,
+        )
 
         ticket_response = TicketResponse.model_validate(ticket)
 
-        assert ticket_response.id == 42
+        assert ticket_response.id == 1
         assert ticket_response.ticket_type_id == 1

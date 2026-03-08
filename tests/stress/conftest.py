@@ -14,11 +14,7 @@ from src.models import Event, Ticket, TicketType
 async def test_session_factory(
     db_connection: AsyncSession,
 ) -> async_sessionmaker[AsyncSession]:
-    async_bind = db_connection.bind
-
-    engine = async_bind.engine if hasattr(async_bind, "engine") else async_bind
-
-    return async_sessionmaker(bind=engine, expire_on_commit=False)
+    return async_sessionmaker(bind=db_connection.bind, expire_on_commit=False)
 
 
 @pytest.fixture

@@ -6,7 +6,8 @@ from polyfactory.factories.sqlalchemy_factory import SQLAlchemyFactory
 
 from src.core.security import get_password_hash
 from src.models import Event, Ticket, TicketType, User
-from src.schemas import EventCreate, UserCreate
+from src.models.ticket import TicketStatus
+from src.schemas import EventCreate, TicketCreate, UserCreate
 from src.schemas.ticket_type import TicketTypeCreate
 
 
@@ -89,15 +90,20 @@ class TicketFactory(SQLAlchemyFactory[Ticket]):
 
     owner = Use(UserFactory.build)
     ticket_type = Use(TicketTypeFactory.build)
+    status = TicketStatus.RESERVED
 
 
 class EventPayloadFactory(ModelFactory[EventCreate]):
     __model__ = EventCreate
 
 
-class UserPayloadFactory(ModelFactory[UserCreate]):
-    __model__ = UserCreate
-
-
 class TicketTypePayloadFactory(ModelFactory[TicketTypeCreate]):
     __model__ = TicketTypeCreate
+
+
+class TicketPayloadFactory(ModelFactory[TicketCreate]):
+    __model__ = TicketCreate
+
+
+class UserPayloadFactory(ModelFactory[UserCreate]):
+    __model__ = UserCreate

@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 class Settings(BaseSettings):
@@ -14,7 +18,6 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     DEFAULT_PAGE_LIMIT: int = 100
-    DEFAULT_OFFSET: int = 0
 
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
@@ -24,6 +27,9 @@ class Settings(BaseSettings):
 
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
+    REDIS_TTL_SECONDS: int = 10
+
+    TICKET_RESERVATION_TIME_SECONDS: int = 900
 
     @property
     def DATABASE_URL(self) -> str:
@@ -37,7 +43,7 @@ class Settings(BaseSettings):
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_ignore_empty=True, extra="ignore"
+        env_file=str(BASE_DIR / ".env"), env_ignore_empty=True, extra="ignore"
     )
 
 

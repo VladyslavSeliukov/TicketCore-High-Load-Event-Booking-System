@@ -1,6 +1,8 @@
 import asyncio
+import uuid
 from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import asyncpg
 import pytest
@@ -9,7 +11,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import NullPool, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from src.db.redis import close_redis_pool, init_redis_pool
+from src.db.redis import close_redis_pool, get_arq_pool, init_redis_pool
 from src.db.session import get_db
 from src.main import app
 
@@ -86,16 +88,8 @@ async def clean_tables() -> None:
 
 @pytest.fixture
 async def db_connection() -> AsyncGenerator[AsyncSession, None]:
-    connection = await test_engine.connect()
-    transaction = await connection.begin()
-
-    session = AsyncSession(bind=connection, expire_on_commit=False)
-
-    yield session
-
-    await session.close()
-    await transaction.rollback()
-    await connection.close()
+    async with async_session_maker() as session:
+        yield session
 
 
 @pytest.fixture(autouse=True)
@@ -106,11 +100,22 @@ async def setup_redis_for_tests() -> AsyncGenerator[None, None]:
 
 
 @pytest.fixture
+def idempotency_header() -> dict[str, str]:
+    return {"Idempotency-Key": str(uuid.uuid4())}
+
+
+@pytest.fixture
 async def client(db_connection: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield db_connection
 
+    mock_arq_pool = AsyncMock()
+
+    async def override_get_arq_pool() -> AsyncMock:
+        return mock_arq_pool
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_arq_pool] = override_get_arq_pool
 
     try:
         async with AsyncClient(
@@ -119,3 +124,4 @@ async def client(db_connection: AsyncSession) -> AsyncGenerator[AsyncClient, Non
             yield c
     finally:
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_arq_pool, None)
