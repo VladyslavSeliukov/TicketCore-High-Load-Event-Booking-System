@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import TypeVar
 
 from polyfactory import Use
 from polyfactory.factories.pydantic_factory import ModelFactory
@@ -10,25 +11,34 @@ from src.models.ticket import TicketStatus
 from src.schemas import EventCreate, TicketCreate, UserCreate
 from src.schemas.ticket_type import TicketTypeCreate
 
+T = TypeVar("T")
 
-class UserFactory(SQLAlchemyFactory[User]):
+
+class BaseSQLFactory(SQLAlchemyFactory[T]):
+    __is_base_factory__ = True
+    __set_primary_key__ = False
+
+
+class UserFactory(BaseSQLFactory[User]):
     __model__ = User
 
-    hashed_password: str = get_password_hash("very_secure_password")
     is_superuser = False
     is_active = True
+    tickets: list[Ticket] = []
+
+    @classmethod
+    def hashed_password(cls) -> str:
+        return get_password_hash("very_secure_password")
 
     @classmethod
     def email(cls) -> str:
-        return cls.__faker__.email()
-
-    @classmethod
-    def tickets(cls) -> list[Ticket]:
-        return []
+        return str(cls.__faker__.unique.email())
 
 
-class EventFactory(SQLAlchemyFactory[Event]):
+class EventFactory(BaseSQLFactory[Event]):
     __model__ = Event
+
+    ticket_types: list[TicketType] = []
 
     @classmethod
     def date(cls) -> datetime:
@@ -50,17 +60,12 @@ class EventFactory(SQLAlchemyFactory[Event]):
     def street_address(cls) -> str:
         return cls.__faker__.street_address()
 
-    @classmethod
-    def tickets(cls) -> list[Ticket]:
-        return []
 
-    @classmethod
-    def ticket_types(cls) -> list[TicketType]:
-        return []
-
-
-class TicketTypeFactory(SQLAlchemyFactory[TicketType]):
+class TicketTypeFactory(BaseSQLFactory[TicketType]):
     __model__ = TicketType
+
+    event = Use(EventFactory.build)
+    tickets: list[Ticket] = []
 
     @classmethod
     def name(cls) -> str:
@@ -78,14 +83,8 @@ class TicketTypeFactory(SQLAlchemyFactory[TicketType]):
     def price(cls) -> int:
         return cls.__faker__.random_int(min=10, max=500)
 
-    @classmethod
-    def tickets(cls) -> list[Ticket]:
-        return []
 
-    event = Use(EventFactory.build)
-
-
-class TicketFactory(SQLAlchemyFactory[Ticket]):
+class TicketFactory(BaseSQLFactory[Ticket]):
     __model__ = Ticket
 
     owner = Use(UserFactory.build)
