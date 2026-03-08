@@ -99,7 +99,9 @@ class TestEventPost:
             )
             assert response_valid.status_code == status.HTTP_201_CREATED
 
-            mismatched_payload = payload.model_copy(update={"title": "Fake Title"})
+            mismatched_payload = payload.model_copy(
+                update={"title": f"{payload.title} (FAKE)"}
+            )
             response_invalid = await authorized_superuser.post(
                 BASE_URL,
                 json=mismatched_payload.model_dump(mode="json"),

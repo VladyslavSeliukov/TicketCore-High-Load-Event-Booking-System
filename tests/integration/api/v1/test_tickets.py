@@ -131,7 +131,9 @@ class TestTicketPost:
             )
             assert response_valid.status_code == status.HTTP_201_CREATED
 
-            mismatched_payload = payload.model_copy(update={"ticket_type_id": 999})
+            mismatched_payload = payload.model_copy(
+                update={"ticket_type_id": payload.ticket_type_id + 1}
+            )
 
             response_invalid = await authorized_user.post(
                 BASE_URL,
