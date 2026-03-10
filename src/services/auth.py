@@ -10,7 +10,7 @@ from src.core.exception import (
 )
 from src.core.security import create_access_token, get_password_hash, verify_password
 from src.models.user import User
-from src.schemas import PasswordChange, UserCreate
+from src.schemas import PasswordChange, UserCreate, UserResponse
 
 
 class AuthService:
@@ -19,14 +19,14 @@ class AuthService:
     def __init__(self, session: AsyncSession):
         self.db = session
 
-    async def register(self, user_in: UserCreate) -> User:
+    async def register(self, user_in: UserCreate) -> UserResponse:
         """Register a new user and persist their credentials to the database.
 
         Args:
             user_in: Schema containing the email and raw password.
 
         Returns:
-            The newly created User instance.
+            UserResponse: DTO containing the newly created user data.
 
         Raises:
             UserAlreadyExistsError: If a user with the provided email already exists.
@@ -53,7 +53,7 @@ class AuthService:
             await self.db.rollback()
             raise
 
-        return new_user
+        return UserResponse.model_validate(new_user, from_attributes=True)
 
     async def authenticate(self, email: str, password: str) -> str:
         """Verify user credentials and generate a JWT access token.
@@ -82,7 +82,9 @@ class AuthService:
         logger.info(f"User {user.id} logged in successfully")
         return create_access_token(subject=user.id)
 
-    async def change_password(self, user_id: int, passwords: PasswordChange) -> User:
+    async def change_password(
+        self, user_id: int, passwords: PasswordChange
+    ) -> UserResponse:
         """Update the user's password after validating the current one.
 
         Args:
@@ -90,7 +92,7 @@ class AuthService:
             passwords: Schema containing the old and new password strings.
 
         Returns:
-            The updated User instance.
+            UserResponse: DTO containing the updated user data.
 
         Raises:
             InvalidCredentialsError: If the user is not found
@@ -117,4 +119,4 @@ class AuthService:
             await self.db.rollback()
             raise
 
-        return user
+        return UserResponse.model_validate(user, from_attributes=True)

@@ -12,7 +12,12 @@ from src.core.exception import (
 )
 from src.core.redis_keys import RedisClient, RedisKeys
 from src.models import TicketType
-from src.schemas.ticket_type import TicketTypeCreate, TicketTypeUpdate
+from src.schemas.ticket_type import (
+    TicketTypeCreate,
+    TicketTypeDetailResponse,
+    TicketTypeResponse,
+    TicketTypeUpdate,
+)
 
 
 class TicketTypeService:
@@ -26,7 +31,9 @@ class TicketTypeService:
         self.db = session
         self.redis = redis
 
-    async def create(self, event_id: int, type_data: TicketTypeCreate) -> TicketType:
+    async def create(
+        self, event_id: int, type_data: TicketTypeCreate
+    ) -> TicketTypeResponse:
         """Create a new ticket type and warm up the inventory cache.
 
         Args:
@@ -34,7 +41,7 @@ class TicketTypeService:
             type_data (TicketTypeCreate): Schema containing ticket type details.
 
         Returns:
-            TicketType: The created ticket type instance.
+            TicketTypeResponse: DTO containing the created ticket type.
 
         Raises:
             SQLAlchemyError: If the database transaction fails.
@@ -61,16 +68,16 @@ class TicketTypeService:
             await self.db.rollback()
             raise
 
-        return new_ticket_type
+        return TicketTypeResponse.model_validate(new_ticket_type, from_attributes=True)
 
-    async def get(self, ticket_type_id: int) -> TicketType:
+    async def get(self, ticket_type_id: int) -> TicketTypeDetailResponse:
         """Retrieve a specific ticket type by its ID.
 
         Args:
             ticket_type_id (int): The unique identifier of the ticket type.
 
         Returns:
-            TicketType: The requested ticket type instance.
+            TicketTypeDetailResponse: DTO containing the ticket type details.
 
         Raises:
             TicketTypeNotFoundError: If the ticket type does not exist.
@@ -78,11 +85,13 @@ class TicketTypeService:
         ticket_type = await self.db.get(TicketType, ticket_type_id)
         if not ticket_type:
             raise TicketTypeNotFoundError("Ticket type not found")
-        return ticket_type
+        return TicketTypeDetailResponse.model_validate(
+            ticket_type, from_attributes=True
+        )
 
     async def get_all_for_event(
         self, event_id: int, offset: int, limit: int
-    ) -> Sequence[TicketType]:
+    ) -> Sequence[TicketTypeResponse]:
         """Retrieve all ticket types associated with a specific event.
 
         Args:
@@ -91,7 +100,7 @@ class TicketTypeService:
             limit (int): Pagination limit.
 
         Returns:
-            Sequence[TicketType]: A list of associated ticket types.
+            Sequence[TicketTypeResponse]: A list of ticket type DTOs.
         """
         query = (
             select(TicketType)
@@ -100,7 +109,10 @@ class TicketTypeService:
             .limit(limit)
         )
         result = await self.db.scalars(query)
-        return result.all()
+        return [
+            TicketTypeResponse.model_validate(tt, from_attributes=True)
+            for tt in result.all()
+        ]
 
     async def delete(self, ticket_type_id: int) -> None:
         """Remove a ticket type and invalidate related caches.
@@ -146,7 +158,7 @@ class TicketTypeService:
 
     async def update(
         self, ticket_type_id: int, update_data: TicketTypeUpdate
-    ) -> TicketType:
+    ) -> TicketTypeResponse:
         """Update specific fields of an existing ticket type.
 
         Validates that the new total ticket quantity is not strictly less than
@@ -157,7 +169,7 @@ class TicketTypeService:
             update_data (TicketTypeUpdate): Schema containing the fields to update.
 
         Returns:
-            TicketType: The updated TicketType instance.
+            TicketTypeResponse: DTO containing the updated ticket type.
 
         Raises:
             TicketTypeNotFoundError: If the ticket type does not exist.
@@ -171,7 +183,7 @@ class TicketTypeService:
 
         update_dict = update_data.model_dump(exclude_unset=True)
         if not update_dict:
-            return ticket_type
+            return TicketTypeResponse.model_validate(ticket_type, from_attributes=True)
 
         new_quantity = update_dict.get("tickets_quantity")
         if new_quantity is not None and new_quantity < ticket_type.tickets_sold:
@@ -202,4 +214,4 @@ class TicketTypeService:
             await self.db.rollback()
             raise
 
-        return ticket_type
+        return TicketTypeResponse.model_validate(ticket_type, from_attributes=True)

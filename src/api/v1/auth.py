@@ -14,7 +14,9 @@ router = APIRouter()
 @router.post(
     "/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
-async def register_user(user_in: UserCreate, auth_service: AuthServiceDep) -> User:
+async def register_user(
+    user_in: UserCreate, auth_service: AuthServiceDep
+) -> UserResponse:
     """Register a new user account.
 
     Creates a new user record in the database with a hashed password.
@@ -24,7 +26,7 @@ async def register_user(user_in: UserCreate, auth_service: AuthServiceDep) -> Us
         auth_service: Injected authentication service dependency.
 
     Returns:
-        The newly created User model data.
+        UserResponse DTO containing the newly created user data.
     """
     return await auth_service.register(user_in=user_in)
 
@@ -60,7 +62,7 @@ async def change_user_password(
     passwords: PasswordChange,
     auth_service: AuthServiceDep,
     current_user: Annotated[User, Depends(get_current_user)],
-) -> User:
+) -> UserResponse:
     """Change the password for the currently authenticated user.
 
     Requires the user to provide their current password for verification
@@ -72,7 +74,7 @@ async def change_user_password(
         current_user: The authenticated user making the request.
 
     Returns:
-        The updated User model data.
+        UserResponse DTO containing the updated user data.
     """
     return await auth_service.change_password(
         user_id=current_user.id, passwords=passwords

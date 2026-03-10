@@ -12,7 +12,7 @@ from src.api.deps import (
     get_current_user,
 )
 from src.core.config import settings
-from src.models import Ticket, User
+from src.models import User
 from src.schemas.ticket import TicketCreate, TicketDetailResponse, TicketResponse
 
 router = APIRouter()
@@ -26,7 +26,7 @@ async def create_ticket(
     ticket_service: TicketServiceDep,
     idempotency_service: IdempotencyServiceDep,
     idempotency_key: IdempotencyHeader = None,
-) -> Ticket:
+) -> TicketResponse:
     """Reserve a ticket for a specific event.
 
     Creates a temporary ticket reservation and locks the corresponding inventory.
@@ -41,7 +41,7 @@ async def create_ticket(
         idempotency_key: Unique client-generated key to prevent duplicate bookings.
 
     Returns:
-        The details of the newly reserved Ticket.
+        TicketResponse DTO containing the newly reserved ticket details.
     """
     return await ticket_service.create(user_id=owner.id, ticket_data=ticket)
 
@@ -53,7 +53,7 @@ async def get_ticket(
     owner: Annotated[User, Depends(get_current_user)],
     ticket_id: int,
     ticket_service: TicketServiceDep,
-) -> Ticket:
+) -> TicketDetailResponse:
     """Retrieve detailed information about a specific ticket.
 
     Includes nested information about the ticket type and the event.
@@ -65,20 +65,18 @@ async def get_ticket(
         ticket_service: Injected ticket service dependency.
 
     Returns:
-        The Ticket details including event and type relations.
+        TicketDetailResponse DTO including nested event and ticket type relations.
     """
     return await ticket_service.get(owner_id=owner.id, ticket_id=ticket_id)
 
 
-@router.get(
-    "/", response_model=list[TicketDetailResponse], status_code=status.HTTP_200_OK
-)
+@router.get("/", response_model=list[TicketResponse], status_code=status.HTTP_200_OK)
 async def get_tickets(
     owner: Annotated[User, Depends(get_current_user)],
     ticket_service: TicketServiceDep,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = settings.DEFAULT_PAGE_LIMIT,
-) -> Sequence[Ticket]:
+) -> Sequence[TicketResponse]:
     """Retrieve a paginated list of all tickets owned by the current user.
 
     Args:
@@ -88,7 +86,7 @@ async def get_tickets(
         limit: The maximum number of items to return per page.
 
     Returns:
-        A list of Ticket models owned by the user.
+        A list of TicketResponse DTOs owned by the user.
     """
     return await ticket_service.get_all_for_user(
         owner_id=owner.id, offset=offset, limit=limit

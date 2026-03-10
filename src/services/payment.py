@@ -10,6 +10,7 @@ from src.core.exception import (
 )
 from src.models import Ticket
 from src.models.ticket import TicketStatus
+from src.schemas.payment import TicketPaymentSchema
 
 
 class PaymentService:
@@ -18,7 +19,9 @@ class PaymentService:
     def __init__(self, session: AsyncSession) -> None:
         self.db = session
 
-    async def pay_for_ticket(self, ticket_id: int, owner_id: int) -> Ticket:
+    async def pay_for_ticket(
+        self, ticket_id: int, owner_id: int
+    ) -> TicketPaymentSchema:
         """Process payment for a reserved ticket and mark it as sold.
 
         Uses a database lock (`with_for_update`) to prevent race conditions
@@ -29,7 +32,7 @@ class PaymentService:
             owner_id: The ID of the user who owns the ticket.
 
         Returns:
-            The updated Ticket instance with 'SOLD' status.
+            TicketPaymentSchema: updated ticket details with 'SOLD' status(DTO).
 
         Raises:
             TicketNotFoundError: If the ticket does not exist
@@ -68,4 +71,4 @@ class PaymentService:
             await self.db.rollback()
             raise
 
-        return ticket
+        return TicketPaymentSchema.model_validate(ticket, from_attributes=True)

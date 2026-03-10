@@ -33,7 +33,7 @@ class EventService:
             event_data (EventCreate): Schema containing the details of the event.
 
         Returns:
-            Event: The newly created Event instance.
+            EventResponse: DTO containing the newly created event details.
 
         Raises:
             SQLAlchemyError: If the database transaction fails.
@@ -48,7 +48,7 @@ class EventService:
             await self.db.rollback()
             raise
 
-        return EventResponse.model_validate(new_event)
+        return EventResponse.model_validate(new_event, from_attributes=True)
 
     async def get(self, event_id: int) -> EventDetailResponse:
         """Retrieve an event by its ID.
