@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from arq import ArqRedis
 from redis.asyncio import Redis
 from sqlalchemy import select, update
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -104,6 +104,19 @@ class TicketService:
                 new_ticket.id,
                 _defer_by=settings.TICKET_RESERVATION_TIME_SECONDS,
             )
+        except IntegrityError as e:
+            await self.db.rollback()
+            await self.redis.incr(inventory_key)
+
+            error_msg = str(e).lower()
+            if (
+                "ck_ticket_types_check_sold_limit" in error_msg
+                or "checkviolation" in error_msg
+            ):
+                raise TicketsSoldOutError(
+                    "Sold out. No tickets of this type available"
+                ) from e
+            raise
         except SQLAlchemyError:
             await self.db.rollback()
             await self.redis.incr(inventory_key)
