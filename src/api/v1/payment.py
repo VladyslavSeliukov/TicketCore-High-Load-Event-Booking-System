@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, status
 from fastapi.params import Depends
 
+from src.api.decorators import idempotent
 from src.api.deps import PaymentServiceDep, get_current_user
 from src.models import User
 from src.schemas.payment import TicketPaymentSchema
@@ -15,6 +16,7 @@ router = APIRouter()
     response_model=TicketPaymentSchema,
     status_code=status.HTTP_200_OK,
 )
+@idempotent(action="ticket_payment")
 async def ticket_payment(
     ticket_id: int,
     user: Annotated[User, Depends(get_current_user)],
