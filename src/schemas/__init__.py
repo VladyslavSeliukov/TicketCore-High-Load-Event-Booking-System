@@ -1,4 +1,4 @@
-from .event import EventCreate, EventResponse, EventUpdate
+from .event import EventCreate, EventDetailResponse, EventResponse, EventUpdate
 from .idempotency import IdempotencyRecord
 from .ticket import TicketCreate, TicketResponse
 from .token import Token
@@ -9,6 +9,7 @@ __all__ = [
     "TicketResponse",
     "EventCreate",
     "EventResponse",
+    "EventDetailResponse",
     "EventUpdate",
     "UserCreate",
     "UserResponse",
