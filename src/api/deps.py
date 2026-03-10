@@ -15,6 +15,7 @@ from src.core.logger import logger
 from src.db.redis import get_arq_pool, get_redis
 from src.db.session import get_db
 from src.models import User
+from src.repositories.event import CachedEventRepository, EventRepository
 from src.schemas.token import TokenPayload
 from src.services.auth import AuthService
 from src.services.event import EventService
@@ -104,36 +105,92 @@ async def get_current_superuser(current_user: User = Depends(get_current_user)) 
 
 
 async def get_ticket_service(
-    session: DBDep, arq_pool: ArqRedis = Depends(get_arq_pool)
+    session: DBDep,
+    arq_pool: ArqRedis = Depends(get_arq_pool),
+    redis: RedisClient = Depends(get_redis),
 ) -> TicketService:
-    """Provide an initialized TicketService instance for dependency injection."""
-    return TicketService(session, arq_pool)
+    """Provide an initialized TicketService instance for dependency injection.
+
+    Args:
+        session (DBDep): Database session.
+        arq_pool (ArqRedis): Redis queue pool for background tasks.
+        redis (RedisClient): Redis client for caching and inventory.
+
+    Returns:
+        TicketService: The configured service instance.
+    """
+    return TicketService(session=session, arq_pool=arq_pool, redis=redis)
 
 
-async def get_event_service(session: DBDep) -> EventService:
-    """Provide an initialized EventService instance for dependency injection."""
-    return EventService(session)
+async def get_event_service(
+    session: DBDep, redis: RedisClient = Depends(get_redis)
+) -> EventService:
+    """Provide an initialized EventService instance for dependency injection.
+
+    Composes the EventRepository and CachedEventRepository layers.
+
+    Args:
+        session (DBDep): Database session.
+        redis (RedisClient): Redis client.
+
+    Returns:
+        EventService: The configured service instance.
+    """
+    base_repo = EventRepository(session)
+    cached_repo = CachedEventRepository(repository=base_repo, redis=redis)
+    return EventService(session=session, base_repo=base_repo, cached_repo=cached_repo)
 
 
 async def get_auth_service(session: DBDep) -> AuthService:
-    """Provide an initialized EventService instance for dependency injection."""
+    """Provide an initialized AuthService instance for dependency injection.
+
+    Args:
+        session (DBDep): Database session.
+
+    Returns:
+        AuthService: The configured service instance.
+    """
     return AuthService(session)
 
 
-async def get_ticket_type_service(session: DBDep) -> TicketTypeService:
-    """Provide an initialized TicketTypeService instance for dependency injection."""
-    return TicketTypeService(session)
+async def get_ticket_type_service(
+    session: DBDep, redis: RedisClient = Depends(get_redis)
+) -> TicketTypeService:
+    """Provide an initialized TicketTypeService instance for dependency injection.
+
+    Args:
+        session (DBDep): Database session.
+        redis (RedisClient): Redis client.
+
+    Returns:
+        TicketTypeService: The configured service instance.
+    """
+    return TicketTypeService(session=session, redis=redis)
 
 
 async def get_idempotency_service(
     redis: RedisClient = Depends(get_redis),
 ) -> IdempotencyService:
-    """Provide an initialized IdempotencyService instance for dependency injection."""
+    """Provide an initialized IdempotencyService instance for dependency injection.
+
+    Args:
+        redis (RedisClient): Redis client for storing idempotency keys.
+
+    Returns:
+        IdempotencyService: The configured service instance.
+    """
     return IdempotencyService(redis)
 
 
 async def get_payment_service(session: DBDep) -> PaymentService:
-    """Provide an initialized PaymentService instance for dependency injection."""
+    """Provide an initialized PaymentService instance for dependency injection.
+
+    Args:
+        session (DBDep): Database session.
+
+    Returns:
+        PaymentService: The configured service instance.
+    """
     return PaymentService(session)
 
 

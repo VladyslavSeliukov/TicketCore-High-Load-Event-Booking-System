@@ -1,114 +1,108 @@
 from collections.abc import Sequence
 
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from src.core import logger
 from src.core.exception import EventDeleteError, EventNotFoundError
-from src.models import Event
-from src.schemas import EventCreate, EventUpdate
+from src.repositories.event import CachedEventRepository, EventRepository
+from src.schemas import EventCreate, EventDetailResponse, EventResponse, EventUpdate
 
 
 class EventService:
-    """Service for managing event lifecycle.
+    """Service for managing event business logic and coordinating data access.
 
-    Handles creation, retrieval, updates, and deletion.
+    Acts as an orchestrator between the base repository, caching proxy,
+    and database transactions (commit/rollback) to maintain the Unit of Work.
     """
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        base_repo: EventRepository,
+        cached_repo: CachedEventRepository,
+    ) -> None:
         self.db = session
+        self.base_repo = base_repo
+        self.cached_repo = cached_repo
 
-    async def create(self, event_data: EventCreate) -> Event:
-        """Create a new event and persist it to the database.
+    async def create(self, event_data: EventCreate) -> EventResponse:
+        """Create a new event and invalidate related caches.
 
         Args:
-            event_data: Schema containing event details like title, date, and location.
+            event_data (EventCreate): Schema containing the details of the event.
 
         Returns:
-            The newly created Event instance.
+            Event: The newly created Event instance.
 
         Raises:
             SQLAlchemyError: If the database transaction fails.
         """
-        new_event = Event(**event_data.model_dump())
-        self.db.add(new_event)
         try:
+            new_event = await self.base_repo.create(event_data)
             await self.db.commit()
-            await self.db.refresh(new_event)
 
+            await self.cached_repo.invalidate_event(new_event.id)
             logger.info(f"Event created {new_event.id}")
         except SQLAlchemyError:
             await self.db.rollback()
             raise
 
-        return new_event
+        return EventResponse.model_validate(new_event)
 
-    async def get(self, event_id: int) -> Event:
-        """Retrieve a specific event by its ID along with its associated ticket types.
+    async def get(self, event_id: int) -> EventDetailResponse:
+        """Retrieve an event by its ID.
+
+        Delegates the retrieval to the caching repository, which handles
+        Redis cache hits/misses and database fallback.
 
         Args:
-            event_id: The unique identifier of the event.
+            event_id (int): The unique identifier of the event.
 
         Returns:
-            The requested Event instance.
+            EventDetailResponse: DTO containing event details.
 
         Raises:
-            EventNotFoundError: If no event with the given ID exists.
+            EventNotFoundError: If the event does not exist.
         """
-        query = (
-            select(Event)
-            .options(selectinload(Event.ticket_types))
-            .where(Event.id == event_id)
-        )
-        event = await self.db.scalar(query)
-        if not event:
-            raise EventNotFoundError("Event not found")
-        return event
+        return await self.cached_repo.get(event_id)
 
-    async def get_all(self, offset: int, limit: int) -> Sequence[Event]:
+    async def get_all(self, offset: int, limit: int) -> Sequence[EventResponse]:
         """Retrieve a paginated list of events.
 
+        Delegates the retrieval to the caching repository to serve
+        high-throughput read requests from Redis.
+
         Args:
-            offset: Number of records to skip.
-            limit: Maximum number of records to return.
+            offset (int): Pagination offset.
+            limit (int): Pagination limit.
 
         Returns:
-            A sequence of Event instances.
+            Sequence[EventResponse]: A list of validated event DTOs.
         """
-        query = (
-            select(Event)
-            .options(selectinload(Event.ticket_types))
-            .offset(offset)
-            .limit(limit)
-        )
-        result = await self.db.scalars(query)
-        return result.all()
+        return await self.cached_repo.get_all(offset=offset, limit=limit)
 
     async def delete(self, event_id: int) -> None:
-        """Remove an event from the database.
-
-        Prevents deletion if there are already tickets associated with this event
-        to maintain data integrity.
+        """Delete an event and clear its associated caches.
 
         Args:
-            event_id: The unique identifier of the event to delete.
+            event_id (int): The unique identifier of the event to delete.
 
         Raises:
             EventNotFoundError: If the event does not exist.
             EventDeleteError: If the event cannot be deleted due to existing tickets.
             SQLAlchemyError: If the database transaction fails.
         """
-        event = await self.db.get(Event, event_id)
+        event = await self.base_repo.get(event_id)
 
         if not event:
             raise EventNotFoundError("Event not found")
 
         try:
-            await self.db.delete(event)
+            await self.base_repo.delete(event)
             await self.db.commit()
 
+            await self.cached_repo.invalidate_event(event_id)
             logger.info(f"Event deleted: {event_id}")
         except IntegrityError as e:
             await self.db.rollback()
@@ -121,41 +115,40 @@ class EventService:
             await self.db.rollback()
             raise
 
-    async def update(self, event_id: int, update_data: EventUpdate) -> Event:
-        """Update specific fields of an existing event.
+    async def update(self, event_id: int, update_data: EventUpdate) -> EventResponse:
+        """Update an existing event and proactively warm up the cache.
 
-        Ignores unset fields in the update payload, applying only the provided changes.
+        Updates the database record, clears the old cache, and immediately
+        fetches the updated data to warm up the cache for subsequent reads.
 
         Args:
-            event_id: The unique identifier of the event to update.
-            update_data: Schema containing the fields to be updated.
+            event_id (int): The unique identifier of the event.
+            update_data (EventUpdate): Schema containing the fields to update.
 
         Returns:
-            The updated Event instance.
+            EventResponse: DTO containing the updated event details.
 
         Raises:
             EventNotFoundError: If the event does not exist.
             SQLAlchemyError: If the database transaction fails.
         """
-        event = await self.db.get(Event, event_id)
+        event = await self.base_repo.get(event_id)
 
         if not event:
             raise EventNotFoundError("Event not found")
 
         update_dict = update_data.model_dump(exclude_unset=True)
         if not update_dict:
-            return event
-
-        for key, value in update_dict.items():
-            setattr(event, key, value)
+            return EventResponse.model_validate(event)
 
         try:
+            await self.base_repo.update(event, update_dict)
             await self.db.commit()
-            await self.db.refresh(event)
 
+            await self.cached_repo.invalidate_event(event_id)
             logger.info(f"Event updated: {event_id}")
+
+            return EventResponse.model_validate(event)
         except SQLAlchemyError:
             await self.db.rollback()
             raise
-
-        return event

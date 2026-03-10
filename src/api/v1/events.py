@@ -13,7 +13,7 @@ from src.api.deps import (
 )
 from src.core.config import settings
 from src.core.exception import EmptyUpdateDataError
-from src.models import Event, User
+from src.models import User
 from src.schemas.event import (
     EventCreate,
     EventDetailResponse,
@@ -32,7 +32,7 @@ async def create_event(
     admin_user: Annotated[User, Depends(get_current_superuser)],
     idempotency_service: IdempotencyServiceDep,
     idempotency_key: IdempotencyHeader = None,
-) -> Event:
+) -> EventResponse:
     """Create a new event. Restricted to superusers.
 
     This endpoint is idempotent to prevent accidental duplicate event creation.
@@ -53,7 +53,9 @@ async def create_event(
 @router.get(
     "/{event_id}", response_model=EventDetailResponse, status_code=status.HTTP_200_OK
 )
-async def get_event(event_id: int, event_service: EventServiceDep) -> Event:
+async def get_event(
+    event_id: int, event_service: EventServiceDep
+) -> EventDetailResponse:
     """Retrieve public details of a specific event.
 
     Includes basic event information along with all available ticket types
@@ -69,14 +71,12 @@ async def get_event(event_id: int, event_service: EventServiceDep) -> Event:
     return await event_service.get(event_id=event_id)
 
 
-@router.get(
-    "/", response_model=list[EventDetailResponse], status_code=status.HTTP_200_OK
-)
+@router.get("/", response_model=list[EventResponse], status_code=status.HTTP_200_OK)
 async def get_events(
     event_service: EventServiceDep,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = settings.DEFAULT_PAGE_LIMIT,
-) -> Sequence[Event]:
+) -> Sequence[EventResponse]:
     """Retrieve a paginated list of all events.
 
     Args:
@@ -117,7 +117,7 @@ async def update_event(
     update_data: EventUpdate,
     event_service: EventServiceDep,
     admin_user: Annotated[User, Depends(get_current_superuser)],
-) -> Event:
+) -> EventResponse:
     """Update specific attributes of an event. Restricted to superusers.
 
     Only the fields provided in the payload will be updated; unset fields
