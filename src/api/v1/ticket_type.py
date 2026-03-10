@@ -51,7 +51,9 @@ async def ticket_type_create(
     Returns:
         The newly created TicketType model.
     """
-    return await ticket_type_service.create(ticket_type_data)
+    return await ticket_type_service.create(
+        event_id=ticket_type_data.event_id, type_data=ticket_type_data
+    )
 
 
 @router.get(

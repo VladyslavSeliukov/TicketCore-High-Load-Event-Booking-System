@@ -39,7 +39,11 @@ class TicketTypeService:
         Raises:
             SQLAlchemyError: If the database transaction fails.
         """
-        new_ticket_type = TicketType(event_id=event_id, **type_data.model_dump())
+        type_dict = type_data.model_dump()
+
+        type_dict["event_id"] = event_id
+
+        new_ticket_type = TicketType(**type_dict)
         self.db.add(new_ticket_type)
 
         try:
