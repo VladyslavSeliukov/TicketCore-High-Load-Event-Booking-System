@@ -45,7 +45,7 @@ async def create_event(
         idempotency_key: Unique client-generated key.
 
     Returns:
-        The newly created Event model.
+        EventResponse DTO containing the newly created event details.
     """
     return await event_service.create(event_data=event)
 
@@ -85,7 +85,7 @@ async def get_events(
         limit: The maximum number of items to return per page.
 
     Returns:
-        A list of Event models.
+        A list of EventResponse DTOs.
     """
     return await event_service.get_all(offset=offset, limit=limit)
 
@@ -130,7 +130,7 @@ async def update_event(
         admin_user: The authenticated superuser making the request.
 
     Returns:
-        The updated Event model.
+        EventResponse DTO containing the updated event.
 
     Raises:
         EmptyUpdateDataError: If the request payload contains no valid fields.

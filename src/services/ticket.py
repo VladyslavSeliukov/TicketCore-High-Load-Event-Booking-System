@@ -15,7 +15,8 @@ from src.core.exception import (
 )
 from src.core.redis_keys import RedisKeys
 from src.models import Ticket, TicketType
-from src.schemas import TicketCreate
+from src.schemas import TicketCreate, TicketResponse
+from src.schemas.ticket import TicketDetailResponse
 
 RedisClient = Redis
 
@@ -34,7 +35,7 @@ class TicketService:
         self.arq_pool = arq_pool
         self.redis = redis
 
-    async def create(self, user_id: int, ticket_data: TicketCreate) -> Ticket:
+    async def create(self, user_id: int, ticket_data: TicketCreate) -> TicketResponse:
         """Reserve a ticket for a user atomically.
 
         Executes a Lua script in Redis to decrement available inventory. Implements
@@ -46,7 +47,7 @@ class TicketService:
             ticket_data (TicketCreate): Schema containing the target ticket type ID.
 
         Returns:
-            Ticket: The newly created ticket record.
+            TicketResponse: DTO containing the newly created ticket.
 
         Raises:
             TicketTypeNotFoundError: If the ticket type does not exist during fallback.
@@ -122,9 +123,9 @@ class TicketService:
             await self.redis.incr(inventory_key)
             raise
 
-        return new_ticket
+        return TicketResponse.model_validate(new_ticket, from_attributes=True)
 
-    async def get(self, owner_id: int, ticket_id: int) -> Ticket:
+    async def get(self, owner_id: int, ticket_id: int) -> TicketDetailResponse:
         """Retrieve a specific ticket belonging to a user.
 
         Args:
@@ -132,7 +133,7 @@ class TicketService:
             ticket_id (int): The unique identifier of the ticket.
 
         Returns:
-            Ticket: The requested ticket instance with eagerly loaded relationships.
+            TicketDetailResponse: ticket details and related event/type data (DTO).
 
         Raises:
             TicketNotFoundError: If the ticket doesn't exist/does not belong to the user
@@ -147,11 +148,11 @@ class TicketService:
         if not ticket:
             raise TicketNotFoundError("Ticket not found")
 
-        return ticket
+        return TicketDetailResponse.model_validate(ticket, from_attributes=True)
 
     async def get_all_for_user(
         self, owner_id: int, offset: int, limit: int
-    ) -> Sequence[Ticket]:
+    ) -> Sequence[TicketResponse]:
         """Retrieve a paginated list of tickets owned by a specific user.
 
         Args:
@@ -160,17 +161,18 @@ class TicketService:
             limit (int): Pagination limit.
 
         Returns:
-            Sequence[Ticket]: A list of ticket instances.
+            Sequence[TicketResponse]: A list of ticket DTOs.
         """
         query = (
             select(Ticket)
-            .options(selectinload(Ticket.ticket_type).joinedload(TicketType.event))
             .where(Ticket.owner_id == owner_id)
             .offset(offset)
             .limit(limit)
         )
         result = await self.db.scalars(query)
-        return result.all()
+        return [
+            TicketResponse.model_validate(t, from_attributes=True) for t in result.all()
+        ]
 
     async def delete(self, owner_id: int, ticket_id: int) -> None:
         """Cancel a ticket reservation and atomically restore inventory.

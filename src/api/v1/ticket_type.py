@@ -14,7 +14,6 @@ from src.api.deps import (
 from src.core import settings
 from src.core.exception import EmptyUpdateDataError
 from src.models import User
-from src.models.ticket_type import TicketType
 from src.schemas.ticket_type import (
     TicketTypeCreate,
     TicketTypeDetailResponse,
@@ -35,7 +34,7 @@ async def ticket_type_create(
     admin: Annotated[User, Depends(get_current_superuser)],
     idempotency_service: IdempotencyServiceDep,
     idempotency_key: IdempotencyHeader = None,
-) -> TicketType:
+) -> TicketTypeResponse:
     """Create a new ticket type for an event. Restricted to superusers.
 
     This endpoint is idempotent to prevent duplicate ticket types
@@ -49,7 +48,7 @@ async def ticket_type_create(
         idempotency_key: Unique client-generated key.
 
     Returns:
-        The newly created TicketType model.
+        TicketTypeResponse DTO containing the newly created ticket type.
     """
     return await ticket_type_service.create(
         event_id=ticket_type_data.event_id, type_data=ticket_type_data
@@ -64,7 +63,7 @@ async def ticket_type_create(
 async def ticket_type_get(
     ticket_type_id: int,
     ticket_type_service: TicketTypeServiceDep,
-) -> TicketType:
+) -> TicketTypeDetailResponse:
     """Retrieve details of a specific ticket type.
 
     Args:
@@ -72,7 +71,7 @@ async def ticket_type_get(
         ticket_type_service: Injected ticket type service dependency.
 
     Returns:
-        The TicketType model.
+        TicketTypeDetailResponse DTO containing the ticket type details.
     """
     return await ticket_type_service.get(ticket_type_id)
 
@@ -87,7 +86,7 @@ async def ticket_type_get_all_for_event(
     ticket_type_service: TicketTypeServiceDep,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = settings.DEFAULT_PAGE_LIMIT,
-) -> Sequence[TicketType]:
+) -> Sequence[TicketTypeResponse]:
     """Retrieve a paginated list of all ticket types for a specific event.
 
     Args:
@@ -97,7 +96,7 @@ async def ticket_type_get_all_for_event(
         limit: Maximum number of items to return per page.
 
     Returns:
-        A list of TicketType models associated with the event.
+        A list of TicketTypeResponse DTOs associated with the event.
     """
     return await ticket_type_service.get_all_for_event(
         event_id=event_id, offset=offset, limit=limit
@@ -133,7 +132,7 @@ async def ticket_type_update(
     update_data: TicketTypeUpdate,
     ticket_type_service: TicketTypeServiceDep,
     admin: Annotated[User, Depends(get_current_superuser)],
-) -> TicketType:
+) -> TicketTypeResponse:
     """Update specific attributes of a ticket type. Restricted to superusers.
 
     Only the fields provided in the payload will be updated; unset fields
@@ -146,7 +145,7 @@ async def ticket_type_update(
         admin: The authenticated superuser making the request.
 
     Returns:
-        The updated TicketType model.
+        TicketTypeResponse DTO containing the updated ticket type.
 
     Raises:
         EmptyUpdateDataError: If the request payload contains no valid fields.
