@@ -33,7 +33,9 @@ asyncio_mode = "auto"
 
 [dependency-groups]
 dev = [
+    "geventhttpclient>=2.3.9",
     "httpx>=0.28.1",
+    "locust>=2.43.3",
     "mypy>=1.19.1",
     "polyfactory>=3.2.0",
     "pre-commit>=4.5.1",
