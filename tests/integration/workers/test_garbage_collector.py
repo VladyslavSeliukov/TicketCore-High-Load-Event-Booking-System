@@ -61,16 +61,22 @@ class TestGarbageCollector:
         assert updated_ticket_type.tickets_sold == 0
 
         inventory_key = RedisKeys.ticket_type_inventory(ticket_type_in_db.id)
+        canceled_set_key = RedisKeys.canceled_tickets_set()
 
         assert mock_redis.eval.call_count == 1
 
         call_args = mock_redis.eval.call_args
         assert call_args is not None
 
-        passed_script, numkeys, passed_key, passed_count = call_args.args
-        assert passed_key == inventory_key
-        assert passed_count == 1
-        assert "INCRBY" in passed_script
+        passed_script, numkeys, passed_inv_key, passed_set_key, passed_ticket_id = (
+            call_args.args
+        )
+
+        assert passed_inv_key == inventory_key
+        assert passed_set_key == canceled_set_key
+        assert passed_ticket_id == ticket_in_db.id
+        assert "SISMEMBER" in passed_script
+        assert "INCR" in passed_script
 
     async def test_grace_ignores_fresh_reservation(
         self,
@@ -98,7 +104,7 @@ class TestGarbageCollector:
         async def mock_session_maker() -> AsyncIterator[AsyncSession]:
             yield db_connection
 
-        ctx = {"session_maker": mock_session_maker}
+        ctx = {"session_maker": mock_session_maker, "redis": AsyncMock()}
         await reconcile_hung_tickets(ctx)
 
         db_connection.expunge_all()
@@ -132,7 +138,7 @@ class TestGarbageCollector:
         async def mock_session_maker() -> AsyncIterator[AsyncSession]:
             yield db_connection
 
-        ctx = {"session_maker": mock_session_maker}
+        ctx = {"session_maker": mock_session_maker, "redis": AsyncMock()}
         await reconcile_hung_tickets(ctx)
 
         db_connection.expunge_all()
@@ -181,7 +187,8 @@ class TestGarbageCollector:
         async def mock_session_maker() -> AsyncIterator[AsyncSession]:
             yield db_connection
 
-        ctx = {"session_maker": mock_session_maker}
+        mock_redis = AsyncMock()
+        ctx = {"session_maker": mock_session_maker, "redis": mock_redis}
         await reconcile_hung_tickets(ctx)
 
         db_connection.expunge_all()
@@ -200,6 +207,8 @@ class TestGarbageCollector:
         updated_ticket_type = await db_connection.get(TicketType, ticket_type_in_db.id)
         assert updated_ticket_type is not None
         assert updated_ticket_type.tickets_sold == 2
+
+        assert mock_redis.eval.call_count == 3
 
 
 @pytest.mark.asyncio
@@ -226,7 +235,9 @@ class TestReleaseUnpaidTicketWorker:
         async def mock_session_maker() -> AsyncIterator[AsyncSession]:
             yield db_connection
 
-        ctx = {"session_maker": mock_session_maker}
+        mock_redis = AsyncMock()
+        ctx = {"session_maker": mock_session_maker, "redis": mock_redis}
+
         await release_unpaid_ticket(ctx, ticket_id=ticket.id)
 
         db_connection.expunge_all()
@@ -238,6 +249,8 @@ class TestReleaseUnpaidTicketWorker:
         updated_ticket_type = await db_connection.get(TicketType, ticket_type_in_db.id)
         assert updated_ticket_type is not None
         assert updated_ticket_type.tickets_sold == 0
+
+        assert mock_redis.eval.call_count == 1
 
     async def test_ignores_already_paid_ticket(
         self,
@@ -261,7 +274,8 @@ class TestReleaseUnpaidTicketWorker:
         async def mock_session_maker() -> AsyncIterator[AsyncSession]:
             yield db_connection
 
-        ctx = {"session_maker": mock_session_maker}
+        mock_redis = AsyncMock()
+        ctx = {"session_maker": mock_session_maker, "redis": mock_redis}
         await release_unpaid_ticket(ctx, ticket_id=ticket.id)
 
         db_connection.expunge_all()
@@ -274,6 +288,8 @@ class TestReleaseUnpaidTicketWorker:
         assert updated_ticket_type is not None
         assert updated_ticket_type.tickets_sold == 1
 
+        assert mock_redis.eval.call_count == 0
+
     async def test_ignores_non_existent_ticket(
         self,
         db_connection: AsyncSession,
@@ -282,6 +298,9 @@ class TestReleaseUnpaidTicketWorker:
         async def mock_session_maker() -> AsyncIterator[AsyncSession]:
             yield db_connection
 
-        ctx = {"session_maker": mock_session_maker}
+        mock_redis = AsyncMock()
+        ctx = {"session_maker": mock_session_maker, "redis": mock_redis}
 
         await release_unpaid_ticket(ctx, ticket_id=999)
+
+        assert mock_redis.eval.call_count == 0
