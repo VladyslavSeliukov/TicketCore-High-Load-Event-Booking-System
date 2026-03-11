@@ -75,3 +75,52 @@ class RedisKeys:
             redis (RedisClient): Async Redis client instance.
         """
         await redis.incr("ticketcore:events:list_version")
+
+    @staticmethod
+    def canceled_tickets_set() -> str:
+        """Generate the key for the Set of processed canceled tickets.
+
+        Used to guarantee idempotency during inventory restoration. It stores
+        the IDs of tickets that have already had their inventory successfully
+        returned to the available pool.
+
+        Returns:
+            str: Formatted Redis key string.
+        """
+        return "system:canceled_tickets"
+
+    @classmethod
+    async def refund_inventory_idempotent(
+        cls, redis: Redis, ticket_type_id: int, ticket_id: int
+    ) -> None:
+        """Idempotently restore a canceled ticket's inventory slot.
+
+        Executes an atomic Lua script to prevent the dual-write problem during
+        background worker retries. It verifies if the ticket was already refunded
+        by checking the processed set. If not, it registers the ticket and
+        increments the available inventory.
+
+        Args:
+            redis: Async Redis client instance for the business logic database.
+            ticket_type_id: The unique identifier of the ticket type to refund.
+            ticket_id: The unique identifier of the canceled ticket.
+        """
+        lua_script = """
+            -- KEYS[1] = inventory_key, KEYS[2] = processed_tickets_set
+            -- ARGV[1] = ticket_id
+
+            if redis.call('SISMEMBER', KEYS[2], ARGV[1]) == 0 then
+                redis.call('SADD', KEYS[2], ARGV[1])
+                if redis.call('EXISTS', KEYS[1]) == 1 then
+                    redis.call('INCR', KEYS[1])
+                end
+                return 1
+            end
+            return 0
+            """
+        inventory_key = cls.ticket_type_inventory(ticket_type_id)
+        processed_set_key = cls.canceled_tickets_set()
+
+        await redis.eval(
+            lua_script, 2, inventory_key, processed_set_key, str(ticket_id)
+        )  # type: ignore[misc]

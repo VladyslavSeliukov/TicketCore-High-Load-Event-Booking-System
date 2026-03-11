@@ -4,10 +4,12 @@ from typing import Any
 
 from arq import cron
 from arq.connections import RedisSettings
+from redis.asyncio import Redis
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.core import logger, settings
+from src.core.redis_keys import RedisKeys
 from src.models import Ticket, TicketType
 from src.models.ticket import TicketStatus
 
@@ -56,6 +58,7 @@ async def release_unpaid_ticket(ctx: dict[str, Any], ticket_id: int) -> None:
         Exception: If the database transaction or inventory restoration fails.
     """
     session_maker = ctx["session_maker"]
+    redis: Redis = ctx["redis"]
 
     async with session_maker() as session:
         try:
@@ -73,14 +76,20 @@ async def release_unpaid_ticket(ctx: dict[str, Any], ticket_id: int) -> None:
                 )
                 return
 
+            ticket_type_id = ticket.ticket_type_id
             ticket.status = TicketStatus.CANCELED
 
             update_query = (
                 update(TicketType)
-                .where(TicketType.id == ticket.ticket_type_id)
+                .where(TicketType.id == ticket_type_id)
                 .values(tickets_sold=TicketType.tickets_sold - 1)
             )
             await session.execute(update_query)
+
+            await RedisKeys.refund_inventory_idempotent(
+                redis=redis, ticket_type_id=ticket_type_id, ticket_id=ticket.id
+            )
+
             await session.commit()
 
             logger.info(
@@ -106,6 +115,8 @@ async def reconcile_hung_tickets(ctx: dict[str, Any]) -> None:
         ctx: The ARQ worker context containing the database session maker.
     """
     session_maker = ctx["session_maker"]
+    redis: Redis = ctx["redis"]
+
     threshold = datetime.now(UTC) - timedelta(
         seconds=settings.TICKET_RESERVATION_TIME_SECONDS
     )
@@ -116,18 +127,17 @@ async def reconcile_hung_tickets(ctx: dict[str, Any]) -> None:
             .where(Ticket.status == TicketStatus.RESERVED)
             .where(Ticket.created_at <= threshold)
             .values(status=TicketStatus.CANCELED)
-            .returning(Ticket.ticket_type_id)
+            .returning(Ticket.id, Ticket.ticket_type_id)
         )
         result = await session.execute(cancel_query)
-        canceled_ticket_types = result.scalars().all()
+        canceled_tickets = result.all()
 
-        if not canceled_ticket_types:
+        if not canceled_tickets:
             return
 
-        logger.info(
-            f"Garbage collector: Found {len(canceled_ticket_types)} hung tickets"
-        )
-        type_count = Counter(canceled_ticket_types)
+        logger.info(f"Garbage collector: Found {len(canceled_tickets)} hung tickets")
+
+        type_count = Counter(t.ticket_type_id for t in canceled_tickets)
 
         for ticket_type_id, count in type_count.items():
             refund_query = (
@@ -136,8 +146,14 @@ async def reconcile_hung_tickets(ctx: dict[str, Any]) -> None:
                 .values(tickets_sold=TicketType.tickets_sold - count)
             )
             await session.execute(refund_query)
+
+        for ticket_id, ticket_type_id in canceled_tickets:
+            await RedisKeys.refund_inventory_idempotent(
+                redis=redis, ticket_type_id=ticket_type_id, ticket_id=ticket_id
+            )
+
         await session.commit()
-        logger.info("Garbage Collector: Successfully returned tickets")
+        logger.info("Garbage Collector: Successfully returned tickets to DB and Redis")
 
 
 class WorkerSettings:
