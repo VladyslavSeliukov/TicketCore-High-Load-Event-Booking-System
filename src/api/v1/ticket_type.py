@@ -78,7 +78,7 @@ async def ticket_type_get(
 
 @router.get(
     "/event/{event_id}",
-    response_model=list[TicketTypeDetailResponse],
+    response_model=list[TicketTypeResponse],
     status_code=status.HTTP_200_OK,
 )
 async def ticket_type_get_all_for_event(
