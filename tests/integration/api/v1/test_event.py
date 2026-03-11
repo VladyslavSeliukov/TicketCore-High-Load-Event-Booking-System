@@ -100,7 +100,7 @@ class TestEventPost:
             assert response_valid.status_code == status.HTTP_201_CREATED
 
             mismatched_payload = payload.model_copy(
-                update={"title": f"{payload.title} (FAKE)"}
+                update={"title": f"{payload.title[:50]} (FAKE)"}
             )
             response_invalid = await authorized_superuser.post(
                 BASE_URL,
