@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 USERS_COUNT = 10_000
-TEST_PASSWORD = "extreamly_strong_password"
+TEST_PASSWORD = "extremely_strong_password"
 BATCH_SIZE = 5_000
 
 

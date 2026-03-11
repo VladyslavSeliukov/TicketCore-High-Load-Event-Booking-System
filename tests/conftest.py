@@ -28,10 +28,10 @@ load_dotenv()
 TEST_DB_NAME = f"{settings.POSTGRES_DB}_test"
 SYSTEM_URL = settings.DATABASE_URL.replace(f"/{settings.POSTGRES_DB}", "/postgres")
 TEST_DB_URL = settings.DATABASE_URL.replace(
-    f"/{settings.DATABASE_URL}", f"/{TEST_DB_NAME}"
+    f"/{settings.POSTGRES_DB}", f"/{TEST_DB_NAME}"
 )
 
-test_engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool)
+test_engine = create_async_engine(TEST_DB_URL, poolclass=NullPool)
 async_session_maker = async_sessionmaker(test_engine, expire_on_commit=False)
 
 
