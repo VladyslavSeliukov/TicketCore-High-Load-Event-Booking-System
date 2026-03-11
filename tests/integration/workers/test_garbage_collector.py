@@ -1,12 +1,14 @@
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core import settings
+from src.core.redis_keys import RedisKeys
 from src.models import Ticket, TicketType, User
 from src.models.ticket import TicketStatus
 from src.worker import reconcile_hung_tickets, release_unpaid_ticket
@@ -15,7 +17,7 @@ from tests.factories import TicketFactory
 
 @pytest.mark.asyncio
 class TestGarbageCollector:
-    async def test_valid(
+    async def test_reconcile_hung_tickets_restores_inventory_in_db_and_redis(
         self,
         ticket_type_in_db: TicketType,
         ticket_in_db: Ticket,
@@ -39,7 +41,13 @@ class TestGarbageCollector:
         async def mock_session_maker() -> AsyncIterator[AsyncSession]:
             yield db_connection
 
-        ctx = {"session_maker": mock_session_maker}
+        mock_redis = AsyncMock()
+
+        ctx = {
+            "session_maker": mock_session_maker,
+            "redis": mock_redis,
+        }
+
         await reconcile_hung_tickets(ctx)
 
         db_connection.expunge_all()
@@ -51,6 +59,18 @@ class TestGarbageCollector:
         updated_ticket_type = await db_connection.get(TicketType, ticket_type_in_db.id)
         assert updated_ticket_type is not None
         assert updated_ticket_type.tickets_sold == 0
+
+        inventory_key = RedisKeys.ticket_type_inventory(ticket_type_in_db.id)
+
+        assert mock_redis.eval.call_count == 1
+
+        call_args = mock_redis.eval.call_args
+        assert call_args is not None
+
+        passed_script, numkeys, passed_key, passed_count = call_args.args
+        assert passed_key == inventory_key
+        assert passed_count == 1
+        assert "INCRBY" in passed_script
 
     async def test_grace_ignores_fresh_reservation(
         self,
