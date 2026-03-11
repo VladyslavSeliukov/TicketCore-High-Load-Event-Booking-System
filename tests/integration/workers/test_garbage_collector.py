@@ -74,7 +74,7 @@ class TestGarbageCollector:
 
         assert passed_inv_key == inventory_key
         assert passed_set_key == canceled_set_key
-        assert passed_ticket_id == ticket_in_db.id
+        assert int(passed_ticket_id) == ticket_in_db.id
         assert "SISMEMBER" in passed_script
         assert "INCR" in passed_script
 
