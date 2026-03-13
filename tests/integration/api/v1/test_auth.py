@@ -103,7 +103,7 @@ class TestAuthSignup:
 @pytest.mark.asyncio
 class TestAuthLogin:
     BASE_URL = "/api/v1/auth/login"
-    EVENT_URL = "/api/v1/events/"
+    EVENT_URL = "/api/v1/events"
     LOGIN_PAYLOAD: dict[str, Any] = {
         "username": "seliukovvladyslav@gmail.com",
         "password": "very_secure_password",

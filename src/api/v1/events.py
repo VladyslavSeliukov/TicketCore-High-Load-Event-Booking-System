@@ -9,6 +9,7 @@ from src.api.deps import (
     EventServiceDep,
     IdempotencyHeader,
     IdempotencyServiceDep,
+    TicketTypeServiceDep,
     get_current_superuser,
 )
 from src.core.config import settings
@@ -20,12 +21,13 @@ from src.schemas.event import (
     EventResponse,
     EventUpdate,
 )
+from src.schemas.ticket_type import TicketTypeResponse
 
 router = APIRouter()
 
 
-@router.post("/", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
-@idempotent(action="create_ticket")
+@router.post("", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
+@idempotent(action="create_event")
 async def create_event(
     event: EventCreate,
     event_service: EventServiceDep,
@@ -71,7 +73,7 @@ async def get_event(
     return await event_service.get(event_id=event_id)
 
 
-@router.get("/", response_model=list[EventResponse], status_code=status.HTTP_200_OK)
+@router.get("", response_model=list[EventResponse], status_code=status.HTTP_200_OK)
 async def get_events(
     event_service: EventServiceDep,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -88,6 +90,33 @@ async def get_events(
         A list of EventResponse DTOs.
     """
     return await event_service.get_all(offset=offset, limit=limit)
+
+
+@router.get(
+    "/{event_id}/ticket-types",
+    response_model=list[TicketTypeResponse],
+    status_code=status.HTTP_200_OK,
+)
+async def ticket_type_get_all_for_event(
+    event_id: int,
+    ticket_type_service: TicketTypeServiceDep,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = settings.DEFAULT_PAGE_LIMIT,
+) -> Sequence[TicketTypeResponse]:
+    """Retrieve a paginated list of all ticket types for a specific event.
+
+    Args:
+        event_id: The ID of the target event.
+        ticket_type_service: Injected ticket type service dependency.
+        offset: Number of items to skip.
+        limit: Maximum number of items to return per page.
+
+    Returns:
+        A list of TicketTypeResponse DTOs associated with the event.
+    """
+    return await ticket_type_service.get_all_for_event(
+        event_id=event_id, offset=offset, limit=limit
+    )
 
 
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)

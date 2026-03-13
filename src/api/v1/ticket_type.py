@@ -1,8 +1,6 @@
-from collections.abc import Sequence
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
-from fastapi.params import Query
 
 from src.api.decorators import idempotent
 from src.api.deps import (
@@ -11,7 +9,6 @@ from src.api.deps import (
     TicketTypeServiceDep,
     get_current_superuser,
 )
-from src.core import settings
 from src.core.exception import EmptyUpdateDataError
 from src.models import User
 from src.schemas.ticket_type import (
@@ -24,9 +21,7 @@ from src.schemas.ticket_type import (
 router = APIRouter()
 
 
-@router.post(
-    "/", response_model=TicketTypeResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=TicketTypeResponse, status_code=status.HTTP_201_CREATED)
 @idempotent(action="ticket_type_create")
 async def ticket_type_create(
     ticket_type_data: TicketTypeCreate,
@@ -74,33 +69,6 @@ async def ticket_type_get(
         TicketTypeDetailResponse DTO containing the ticket type details.
     """
     return await ticket_type_service.get(ticket_type_id)
-
-
-@router.get(
-    "/event/{event_id}",
-    response_model=list[TicketTypeResponse],
-    status_code=status.HTTP_200_OK,
-)
-async def ticket_type_get_all_for_event(
-    event_id: int,
-    ticket_type_service: TicketTypeServiceDep,
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = settings.DEFAULT_PAGE_LIMIT,
-) -> Sequence[TicketTypeResponse]:
-    """Retrieve a paginated list of all ticket types for a specific event.
-
-    Args:
-        event_id: The ID of the target event.
-        ticket_type_service: Injected ticket type service dependency.
-        offset: Number of items to skip.
-        limit: Maximum number of items to return per page.
-
-    Returns:
-        A list of TicketTypeResponse DTOs associated with the event.
-    """
-    return await ticket_type_service.get_all_for_event(
-        event_id=event_id, offset=offset, limit=limit
-    )
 
 
 @router.delete(
