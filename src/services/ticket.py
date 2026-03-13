@@ -1,4 +1,6 @@
-from collections.abc import Sequence
+import time
+from collections.abc import Awaitable, Sequence
+from typing import cast
 
 from arq import ArqRedis
 from redis.asyncio import Redis
@@ -94,6 +96,17 @@ class TicketService:
 
             new_ticket = Ticket(owner_id=user_id, **ticket_data.model_dump())
             self.db.add(new_ticket)
+            await self.db.flush()
+
+            redis_val = f"{new_ticket.ticket_type_id}:{int(time.time())}"
+            await cast(
+                Awaitable[int],
+                self.redis.hset(
+                    RedisKeys.active_reservations_hash(),
+                    str(new_ticket.id),
+                    redis_val,
+                ),
+            )
 
             await self.db.commit()
             await self.db.refresh(new_ticket)
@@ -215,6 +228,11 @@ class TicketService:
             """
             inventory_key = RedisKeys.ticket_type_inventory(ticket.ticket_type_id)
             await self.redis.eval(safe_incr_script, 1, inventory_key)  # type: ignore[misc]
+
+            await cast(
+                Awaitable[int],
+                self.redis.hdel(RedisKeys.active_reservations_hash(), str(ticket_id)),
+            )
 
             logger.info(f"Ticket deleted: {ticket_id}")
         except SQLAlchemyError:

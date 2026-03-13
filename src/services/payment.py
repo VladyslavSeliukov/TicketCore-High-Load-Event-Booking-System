@@ -1,3 +1,7 @@
+from collections.abc import Awaitable
+from typing import cast
+
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +12,7 @@ from src.core.exception import (
     TicketNotFoundError,
     TicketReservationExpireError,
 )
+from src.core.redis_keys import RedisKeys
 from src.models import Ticket
 from src.models.ticket import TicketStatus
 from src.schemas.payment import TicketPaymentSchema
@@ -16,8 +21,9 @@ from src.schemas.payment import TicketPaymentSchema
 class PaymentService:
     """Service for processing ticket payments and managing state transitions."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, redis: Redis) -> None:
         self.db = session
+        self.redis = redis
 
     async def pay_for_ticket(
         self, ticket_id: int, owner_id: int
@@ -66,6 +72,10 @@ class PaymentService:
             await self.db.commit()
             await self.db.refresh(ticket)
 
+            await cast(
+                Awaitable[int],
+                self.redis.hdel(RedisKeys.active_reservations_hash(), str(ticket_id)),
+            )
             logger.info(f"Ticket {ticket_id} successfully PAID")
         except SQLAlchemyError:
             await self.db.rollback()
