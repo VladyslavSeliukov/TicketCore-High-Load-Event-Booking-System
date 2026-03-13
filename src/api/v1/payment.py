@@ -19,7 +19,7 @@ router = APIRouter()
 @router.post(
     "/{ticket_id}/payments",
     response_model=TicketPaymentSchema,
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_201_CREATED,
 )
 @idempotent(action="ticket_payment")
 async def ticket_payment(
