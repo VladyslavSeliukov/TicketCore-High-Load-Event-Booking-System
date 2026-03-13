@@ -182,16 +182,19 @@ async def get_idempotency_service(
     return IdempotencyService(redis)
 
 
-async def get_payment_service(session: DBDep) -> PaymentService:
+async def get_payment_service(
+    session: DBDep, redis: RedisClient = Depends(get_redis)
+) -> PaymentService:
     """Provide an initialized PaymentService instance for dependency injection.
 
     Args:
         session (DBDep): Database session.
+        redis (RedisClient): Redis client.
 
     Returns:
         PaymentService: The configured service instance.
     """
-    return PaymentService(session)
+    return PaymentService(session=session, redis=redis)
 
 
 TicketServiceDep = Annotated[TicketService, Depends(get_ticket_service)]
