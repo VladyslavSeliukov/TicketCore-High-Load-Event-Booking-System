@@ -1,3 +1,6 @@
+from collections.abc import Awaitable
+from typing import cast
+
 from redis.asyncio import Redis
 
 RedisClient = Redis
@@ -89,6 +92,15 @@ class RedisKeys:
         """
         return "system:canceled_tickets"
 
+    @staticmethod
+    def active_reservations_hash() -> str:
+        """Generate the key for the Hash storing active ticket reservations.
+
+        Maps ticket_id -> ticket_type_id. Used by the Garbage Collector
+        to track locks and find 'ghost' reservations.
+        """
+        return "system:active_reservations"
+
     @classmethod
     async def refund_inventory_idempotent(
         cls, redis: Redis, ticket_type_id: int, ticket_id: int
@@ -106,7 +118,9 @@ class RedisKeys:
             ticket_id: The unique identifier of the canceled ticket.
         """
         lua_script = """
-            -- KEYS[1] = inventory_key, KEYS[2] = processed_tickets_set
+            -- KEYS[1] = inventory_key
+            -- KEYS[2] = processed_tickets_set
+            -- KEYS[3] = active_reservations_hash
             -- ARGV[1] = ticket_id
 
             if redis.call('SISMEMBER', KEYS[2], ARGV[1]) == 0 then
@@ -114,13 +128,47 @@ class RedisKeys:
                 if redis.call('EXISTS', KEYS[1]) == 1 then
                     redis.call('INCR', KEYS[1])
                 end
+                redis.call('HDEL', KEYS[3], ARGV[1])
                 return 1
             end
             return 0
             """
         inventory_key = cls.ticket_type_inventory(ticket_type_id)
         processed_set_key = cls.canceled_tickets_set()
+        active_hash_key = cls.active_reservations_hash()
 
         await redis.eval(
-            lua_script, 2, inventory_key, processed_set_key, str(ticket_id)
+            lua_script,
+            3,
+            inventory_key,
+            processed_set_key,
+            active_hash_key,
+            str(ticket_id),
         )  # type: ignore[misc]
+
+    @classmethod
+    async def get_all_active_reservations(cls, redis: Redis) -> list[dict[str, int]]:
+        """Fetch all currently active locks from Redis.
+
+        Returns:
+            A list of dicts: [{'ticket_id': 1, 'ticket_type_id': 2}, ...]
+        """
+        hash_key = cls.active_reservations_hash()
+        raw_data = await cast(Awaitable[dict[bytes, bytes]], redis.hgetall(hash_key))
+
+        reservations = []
+        for ticket_id_bytes, val_bytes in raw_data.items():
+            val_str = (
+                val_bytes.decode("utf-8") if isinstance(val_bytes, bytes) else val_bytes
+            )
+            ticket_type_id_str, ts_str = val_str.split(":")
+
+            reservations.append(
+                {
+                    "ticket_id": int(ticket_id_bytes),
+                    "ticket_type_id": int(ticket_type_id_str),
+                    "timestamp": int(ts_str),
+                }
+            )
+
+        return reservations
