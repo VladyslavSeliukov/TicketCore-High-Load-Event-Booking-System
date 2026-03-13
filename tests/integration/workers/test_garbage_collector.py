@@ -62,21 +62,30 @@ class TestGarbageCollector:
 
         inventory_key = RedisKeys.ticket_type_inventory(ticket_type_in_db.id)
         canceled_set_key = RedisKeys.canceled_tickets_set()
+        active_hash_key = RedisKeys.active_reservations_hash()
 
         assert mock_redis.eval.call_count == 1
 
         call_args = mock_redis.eval.call_args
         assert call_args is not None
 
-        passed_script, numkeys, passed_inv_key, passed_set_key, passed_ticket_id = (
-            call_args.args
-        )
+        (
+            passed_script,
+            numkeys,
+            passed_inv_key,
+            passed_set_key,
+            passed_active_hash,
+            passed_ticket_id,
+        ) = call_args.args
 
+        assert numkeys == 3
         assert passed_inv_key == inventory_key
         assert passed_set_key == canceled_set_key
+        assert passed_active_hash == active_hash_key
         assert int(passed_ticket_id) == ticket_in_db.id
         assert "SISMEMBER" in passed_script
         assert "INCR" in passed_script
+        assert "HDEL" in passed_script
 
     async def test_grace_ignores_fresh_reservation(
         self,
