@@ -26,9 +26,8 @@ from src.schemas.ticket_type import TicketTypeResponse
 router = APIRouter()
 
 
-@router.post("/", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
-@idempotent(action="create_ticket")
 @router.post("", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
+@idempotent(action="create_event")
 async def create_event(
     event: EventCreate,
     event_service: EventServiceDep,
