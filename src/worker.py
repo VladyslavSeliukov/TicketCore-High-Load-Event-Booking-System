@@ -1,3 +1,4 @@
+import time
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -156,6 +157,62 @@ async def reconcile_hung_tickets(ctx: dict[str, Any]) -> None:
         logger.info("Garbage Collector: Successfully returned tickets to DB and Redis")
 
 
+async def reconcile_redis_orphans(ctx: dict[str, Any]) -> None:
+    """Find and refund orphaned reservations in Redis.
+
+    Uses a grace period to prevent race conditions with slow database transactions.
+    """
+    session_maker = ctx["session_maker"]
+    redis: Redis = ctx["redis"]
+
+    active_redis_locks = await RedisKeys.get_all_active_reservations(redis)
+
+    if not active_redis_locks:
+        return
+
+    current_time = int(time.time())
+    GRACE_PERIOD_SECONDS = 60
+
+    suspicious_locks = [
+        lock
+        for lock in active_redis_locks
+        if (current_time - lock["timestamp"]) > GRACE_PERIOD_SECONDS
+    ]
+
+    if not suspicious_locks:
+        return
+
+    redis_ticket_ids = [lock["ticket_id"] for lock in suspicious_locks]
+
+    async with session_maker() as session:
+        query = select(Ticket.id, Ticket.status).where(Ticket.id.in_(redis_ticket_ids))
+        result = await session.execute(query)
+        db_tickets = {row.id: row.status for row in result.all()}
+
+    orphaned_locks = []
+
+    for lock in suspicious_locks:
+        ticket_id = lock["ticket_id"]
+        db_status = db_tickets.get(ticket_id)
+
+        if db_status is None or db_status == TicketStatus.CANCELED:
+            orphaned_locks.append(lock)
+
+    logger.info(f"Redis GC: Found {len(orphaned_locks)} ghost locks")
+
+    if not orphaned_locks:
+        return
+
+    for lock in orphaned_locks:
+        await RedisKeys.refund_inventory_idempotent(
+            redis=redis,
+            ticket_type_id=lock["ticket_type_id"],
+            ticket_id=lock["ticket_id"],
+        )
+
+    logger.info("Redis GC: Ghost tickets refunded successfully")
+
+
 class WorkerSettings:
     """Configuration class for the ARQ Redis worker."""
 
@@ -167,4 +224,7 @@ class WorkerSettings:
     on_startup = startup
     on_shutdown = shutdown
 
-    cron_jobs = [cron(reconcile_hung_tickets, minute=set(range(0, 60, 5)))]
+    cron_jobs = [
+        cron(reconcile_hung_tickets, minute=set(range(0, 60, 5))),
+        cron(reconcile_redis_orphans, minute=set(range(2, 60, 5))),
+    ]
