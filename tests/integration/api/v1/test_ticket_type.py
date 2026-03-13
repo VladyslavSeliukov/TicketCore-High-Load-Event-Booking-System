@@ -6,9 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import Event, TicketType
 from src.schemas.ticket_type import TicketTypeCreate
-from tests.factories import TicketFactory, TicketTypeFactory, TicketTypePayloadFactory
+from tests.factories import TicketFactory, TicketTypePayloadFactory
 
-BASE_URL = "/api/v1/ticket_type/"
+BASE_URL = "/api/v1/ticket-types"
 
 
 @pytest.mark.asyncio
@@ -133,78 +133,21 @@ class TestTicketTypeGet:
     async def test_get_by_id(
         self, client: AsyncClient, ticket_type_in_db: TicketType
     ) -> None:
-        responses = await client.get(f"{BASE_URL}{ticket_type_in_db.id}")
+        responses = await client.get(f"{BASE_URL}/{ticket_type_in_db.id}")
         assert responses.status_code == status.HTTP_200_OK
 
         ticket_type = responses.json()
         assert ticket_type["name"] == ticket_type_in_db.name
 
-    async def test_get_for_event(
-        self, client: AsyncClient, event_in_db: Event, db_connection: AsyncSession
-    ) -> None:
-        factory_ticket_types = TicketTypeFactory.batch(size=5, event=event_in_db)
-        db_connection.add_all(factory_ticket_types)
-        await db_connection.commit()
-
-        resource = await client.get(f"{BASE_URL}event/{event_in_db.id}")
-        assert resource.status_code == status.HTTP_200_OK
-
-        data = resource.json()
-        assert isinstance(data, list)
-        assert len(data) == 5
-
-        for item in data:
-            assert item["event_id"] == event_in_db.id
-
     async def test_get_non_existent_ticket_type(
         self, client: AsyncClient, db_connection: AsyncSession
     ) -> None:
         id = 999
-        result = await client.get(f"{BASE_URL}{id}")
+        result = await client.get(f"{BASE_URL}/{id}")
         assert result.status_code == status.HTTP_404_NOT_FOUND
 
         db_ticket_type = await db_connection.get(TicketType, id)
         assert db_ticket_type is None
-
-    async def test_pagination_for_get_all_ticket_type_for_event(
-        self, client: AsyncClient, event_in_db: Event, db_connection: AsyncSession
-    ) -> None:
-        factory_ticket_types = TicketTypeFactory.batch(size=10, event=event_in_db)
-        db_connection.add_all(factory_ticket_types)
-        await db_connection.commit()
-
-        resource1 = await client.get(
-            f"{BASE_URL}event/{event_in_db.id}?limit=5&offset=0"
-        )
-        assert resource1.status_code == status.HTTP_200_OK
-
-        data1 = resource1.json()
-        assert isinstance(data1, list)
-        assert len(data1) == 5
-
-        for item in data1:
-            assert item["event_id"] == event_in_db.id
-
-        resource2 = await client.get(
-            f"{BASE_URL}event/{event_in_db.id}?limit=5&offset=5"
-        )
-        assert resource2.status_code == status.HTTP_200_OK
-
-        data2 = resource2.json()
-        assert isinstance(data2, list)
-        assert len(data2) == 5
-
-        for item in data2:
-            assert item["event_id"] == event_in_db.id
-
-        resource3 = await client.get(
-            f"{BASE_URL}event/{event_in_db.id}?limit=5&offset=10"
-        )
-        assert resource3.status_code == status.HTTP_200_OK
-
-        data3 = resource3.json()
-        assert isinstance(data3, list)
-        assert len(data3) == 0
 
 
 @pytest.mark.asyncio
@@ -224,7 +167,7 @@ class TestTicketTypePatch:
         ticket_type_name = ticket_type_in_db.name
 
         result = await authorized_superuser.patch(
-            f"{BASE_URL}{ticket_type_in_db.id}", json=payload
+            f"{BASE_URL}/{ticket_type_in_db.id}", json=payload
         )
         assert result.status_code == status.HTTP_200_OK
 
@@ -257,7 +200,7 @@ class TestTicketTypePatch:
         ticket_type_in_db: TicketType,
     ) -> None:
         result = await api_client.patch(
-            f"{BASE_URL}{ticket_type_in_db.id}", json=payload
+            f"{BASE_URL}/{ticket_type_in_db.id}", json=payload
         )
         assert result.status_code == expected_status
 
@@ -273,7 +216,7 @@ class TestTicketTypePatch:
         non_existent_id = 999
 
         result = await authorized_superuser.patch(
-            f"{BASE_URL}{non_existent_id}", json=payload
+            f"{BASE_URL}/{non_existent_id}", json=payload
         )
         assert result.status_code == status.HTTP_404_NOT_FOUND
 
@@ -294,7 +237,7 @@ class TestTicketTypePatch:
         payload = {"tickets_quantity": 10}
 
         result = await authorized_superuser.patch(
-            f"{BASE_URL}{ticket_type_in_db.id}", json=payload
+            f"{BASE_URL}/{ticket_type_in_db.id}", json=payload
         )
 
         assert result.status_code == status.HTTP_409_CONFLICT
@@ -308,7 +251,7 @@ class TestTicketTypePatch:
         payload = {"event_id": 99999}
 
         result = await authorized_superuser.patch(
-            f"{BASE_URL}{ticket_type_in_db.id}", json=payload
+            f"{BASE_URL}/{ticket_type_in_db.id}", json=payload
         )
         assert result.status_code == status.HTTP_400_BAD_REQUEST
 
@@ -321,7 +264,7 @@ class TestTicketTypeDelete:
         ticket_type_in_db: TicketType,
         authorized_superuser: AsyncClient,
     ) -> None:
-        result = await authorized_superuser.delete(f"{BASE_URL}{ticket_type_in_db.id}")
+        result = await authorized_superuser.delete(f"{BASE_URL}/{ticket_type_in_db.id}")
         assert result.status_code == status.HTTP_204_NO_CONTENT
 
         db_connection.expunge_all()
@@ -344,7 +287,7 @@ class TestTicketTypeDelete:
         db_connection: AsyncSession,
         ticket_type_in_db: TicketType,
     ) -> None:
-        result = await api_client.delete(f"{BASE_URL}{ticket_type_in_db.id}")
+        result = await api_client.delete(f"{BASE_URL}/{ticket_type_in_db.id}")
         assert result.status_code == expected_status
 
         db_ticket_type = await db_connection.get(TicketType, ticket_type_in_db.id)
@@ -355,7 +298,7 @@ class TestTicketTypeDelete:
     ) -> None:
         non_existent_id = 999
 
-        result = await authorized_superuser.delete(f"{BASE_URL}{non_existent_id}")
+        result = await authorized_superuser.delete(f"{BASE_URL}/{non_existent_id}")
         assert result.status_code == status.HTTP_404_NOT_FOUND
 
         db_ticket_type = await db_connection.get(TicketType, non_existent_id)
@@ -373,5 +316,5 @@ class TestTicketTypeDelete:
 
         db_connection.expunge_all()
 
-        result = await authorized_superuser.delete(f"{BASE_URL}{ticket_type_in_db.id}")
+        result = await authorized_superuser.delete(f"{BASE_URL}/{ticket_type_in_db.id}")
         assert result.status_code == status.HTTP_409_CONFLICT

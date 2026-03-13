@@ -6,9 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import Event, TicketType, User
 from src.schemas import EventCreate
-from tests.factories import EventFactory, EventPayloadFactory, TicketFactory
+from tests.factories import (
+    EventFactory,
+    EventPayloadFactory,
+    TicketFactory,
+    TicketTypeFactory,
+)
 
-BASE_URL = "/api/v1/events/"
+BASE_URL = "/api/v1/events"
 
 
 @pytest.mark.asyncio
@@ -125,7 +130,7 @@ class TestEventPost:
 @pytest.mark.asyncio
 class TestEventGet:
     async def test_get_event(self, client: AsyncClient, event_in_db: Event) -> None:
-        response = await client.get(f"{BASE_URL}{event_in_db.id}")
+        response = await client.get(f"{BASE_URL}/{event_in_db.id}")
 
         assert response.status_code == status.HTTP_200_OK
         event = response.json()
@@ -189,6 +194,64 @@ class TestEventGet:
         assert len(events_p3) == 0
         assert isinstance(events_p3, list)
 
+    class TestTicketTypeForEvent:
+        async def test_get_ticket_type_for_event(
+            self, client: AsyncClient, event_in_db: Event, db_connection: AsyncSession
+        ) -> None:
+            factory_ticket_types = TicketTypeFactory.batch(size=5, event=event_in_db)
+            db_connection.add_all(factory_ticket_types)
+            await db_connection.commit()
+
+            resource = await client.get(f"{BASE_URL}/{event_in_db.id}/ticket-types")
+            assert resource.status_code == status.HTTP_200_OK
+
+            data = resource.json()
+            assert isinstance(data, list)
+            assert len(data) == 5
+
+            for item in data:
+                assert item["event_id"] == event_in_db.id
+
+        async def test_pagination_for_get_all_ticket_type_for_event(
+            self, client: AsyncClient, event_in_db: Event, db_connection: AsyncSession
+        ) -> None:
+            factory_ticket_types = TicketTypeFactory.batch(size=10, event=event_in_db)
+            db_connection.add_all(factory_ticket_types)
+            await db_connection.commit()
+
+            resource1 = await client.get(
+                f"{BASE_URL}/{event_in_db.id}/ticket-types?limit=5&offset=0"
+            )
+            assert resource1.status_code == status.HTTP_200_OK
+
+            data1 = resource1.json()
+            assert isinstance(data1, list)
+            assert len(data1) == 5
+
+            for item in data1:
+                assert item["event_id"] == event_in_db.id
+
+            resource2 = await client.get(
+                f"{BASE_URL}/{event_in_db.id}/ticket-types?limit=5&offset=5"
+            )
+            assert resource2.status_code == status.HTTP_200_OK
+
+            data2 = resource2.json()
+            assert isinstance(data2, list)
+            assert len(data2) == 5
+
+            for item in data2:
+                assert item["event_id"] == event_in_db.id
+
+            resource3 = await client.get(
+                f"{BASE_URL}/{event_in_db.id}/ticket-types?limit=5&offset=10"
+            )
+            assert resource3.status_code == status.HTTP_200_OK
+
+            data3 = resource3.json()
+            assert isinstance(data3, list)
+            assert len(data3) == 0
+
 
 @pytest.mark.asyncio
 class TestEventPatch:
@@ -202,7 +265,7 @@ class TestEventPatch:
         payload = {"title": "New Title"}
 
         response = await authorized_superuser.patch(
-            f"{BASE_URL}{event_in_db.id}", json=payload
+            f"{BASE_URL}/{event_in_db.id}", json=payload
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -231,7 +294,7 @@ class TestEventPatch:
         orig_title = event_in_db.title
         payload = {"title": "New Title"}
 
-        response = await api_client.patch(f"{BASE_URL}{event_in_db.id}", json=payload)
+        response = await api_client.patch(f"{BASE_URL}/{event_in_db.id}", json=payload)
         assert response.status_code == expected_status
 
         db_event = await db_connection.get(Event, event_in_db.id)
@@ -267,7 +330,7 @@ class TestEventDelete:
     ) -> None:
         event_id = event_in_db.id
 
-        response = await authorized_superuser.delete(f"{BASE_URL}{event_id}")
+        response = await authorized_superuser.delete(f"{BASE_URL}/{event_id}")
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
         db_connection.expunge_all()
@@ -292,7 +355,7 @@ class TestEventDelete:
     ) -> None:
         event_id = event_in_db.id
 
-        response = await api_client.delete(f"{BASE_URL}{event_id}")
+        response = await api_client.delete(f"{BASE_URL}/{event_id}")
         assert response.status_code == expected_status
 
         db_event = await db_connection.get(Event, event_id)
@@ -305,7 +368,7 @@ class TestEventDelete:
     ) -> None:
         non_existent = 999
 
-        response = await authorized_superuser.delete(f"{BASE_URL}{non_existent}")
+        response = await authorized_superuser.delete(f"{BASE_URL}/{non_existent}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
         db_event = await db_connection.get(Event, non_existent)
@@ -323,7 +386,7 @@ class TestEventDelete:
         db_connection.add(ticket)
         await db_connection.commit()
 
-        response = await authorized_superuser.delete(f"{BASE_URL}{event_in_db.id}")
+        response = await authorized_superuser.delete(f"{BASE_URL}/{event_in_db.id}")
         assert response.status_code == status.HTTP_409_CONFLICT
 
         db_connection.expunge_all()

@@ -46,7 +46,7 @@ async def test_race_condition_overselling(
         ticket_payload = {"ticket_type_id": ticket_type_id}
 
         async def buy_ticket() -> Response:
-            return await stress_client.post("/api/v1/tickets/", json=ticket_payload)
+            return await stress_client.post("/api/v1/tickets", json=ticket_payload)
 
         buy_ticket_tasks = [buy_ticket() for _ in range(50)]
         responses = await asyncio.gather(*buy_ticket_tasks)

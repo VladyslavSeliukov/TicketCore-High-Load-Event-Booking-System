@@ -10,7 +10,7 @@ from src.models import Ticket, TicketType, User
 from src.schemas import TicketCreate
 from tests.factories import TicketFactory, TicketPayloadFactory
 
-BASE_URL = "/api/v1/tickets/"
+BASE_URL = "/api/v1/tickets"
 
 
 @pytest.mark.asyncio
@@ -173,7 +173,7 @@ class TestTicketGet:
         await db_connection.commit()
         await db_connection.refresh(ticket)
 
-        response = await authorized_user.get(f"{BASE_URL}{ticket.id}")
+        response = await authorized_user.get(f"{BASE_URL}/{ticket.id}")
         assert response.status_code == status.HTTP_200_OK
 
         data = response.json()
@@ -285,7 +285,7 @@ class TestTicketDelete:
         ticket_id = ticket.id
         ticket_type_id = ticket_type_in_db.id
 
-        response = await authorized_user.delete(f"{BASE_URL}{ticket_id}")
+        response = await authorized_user.delete(f"{BASE_URL}/{ticket_id}")
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
         db_connection.expunge_all()
@@ -309,7 +309,7 @@ class TestTicketDelete:
         await db_connection.commit()
         await db_connection.refresh(ticket)
 
-        response = await client.delete(f"{BASE_URL}{ticket.id}")
+        response = await client.delete(f"{BASE_URL}/{ticket.id}")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
         db_connection.expunge_all()
