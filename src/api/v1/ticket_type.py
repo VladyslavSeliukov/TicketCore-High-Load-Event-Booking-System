@@ -71,33 +71,6 @@ async def ticket_type_get(
     return await ticket_type_service.get(ticket_type_id)
 
 
-@router.get(
-    "/event/{event_id}",
-    response_model=list[TicketTypeResponse],
-    status_code=status.HTTP_200_OK,
-)
-async def ticket_type_get_all_for_event(
-    event_id: int,
-    ticket_type_service: TicketTypeServiceDep,
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = settings.DEFAULT_PAGE_LIMIT,
-) -> Sequence[TicketTypeResponse]:
-    """Retrieve a paginated list of all ticket types for a specific event.
-
-    Args:
-        event_id: The ID of the target event.
-        ticket_type_service: Injected ticket type service dependency.
-        offset: Number of items to skip.
-        limit: Maximum number of items to return per page.
-
-    Returns:
-        A list of TicketTypeResponse DTOs associated with the event.
-    """
-    return await ticket_type_service.get_all_for_event(
-        event_id=event_id, offset=offset, limit=limit
-    )
-
-
 @router.delete(
     "/{ticket_type_id}",
     status_code=status.HTTP_204_NO_CONTENT,
