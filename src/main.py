@@ -56,12 +56,12 @@ app.include_router(
     tickets.router, prefix=f"{settings.API_V1_STR}/tickets", tags=["Tickets"]
 )
 app.include_router(
-    payment.router, prefix=f"{settings.API_V1_STR}/payment", tags=["Payment"]
+    payment.router, prefix=f"{settings.API_V1_STR}/tickets", tags=["Payments"]
 )
 app.include_router(
     ticket_type.router,
-    prefix=f"{settings.API_V1_STR}/ticket_type",
-    tags=["Ticket Type"],
+    prefix=f"{settings.API_V1_STR}/ticket-types",
+    tags=["Ticket Types"],
 )
 app.include_router(
     events.router, prefix=f"{settings.API_V1_STR}/events", tags=["Events"]

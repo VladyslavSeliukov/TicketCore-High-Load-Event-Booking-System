@@ -26,6 +26,7 @@ router = APIRouter()
 
 @router.post("/", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
 @idempotent(action="create_ticket")
+@router.post("", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
 async def create_event(
     event: EventCreate,
     event_service: EventServiceDep,
@@ -71,7 +72,7 @@ async def get_event(
     return await event_service.get(event_id=event_id)
 
 
-@router.get("/", response_model=list[EventResponse], status_code=status.HTTP_200_OK)
+@router.get("", response_model=list[EventResponse], status_code=status.HTTP_200_OK)
 async def get_events(
     event_service: EventServiceDep,
     offset: Annotated[int, Query(ge=0)] = 0,

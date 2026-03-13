@@ -1,8 +1,6 @@
-from collections.abc import Sequence
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
-from fastapi.params import Query
 
 from src.api.decorators import idempotent
 from src.api.deps import (
@@ -11,7 +9,6 @@ from src.api.deps import (
     TicketTypeServiceDep,
     get_current_superuser,
 )
-from src.core import settings
 from src.core.exception import EmptyUpdateDataError
 from src.models import User
 from src.schemas.ticket_type import (
@@ -24,9 +21,7 @@ from src.schemas.ticket_type import (
 router = APIRouter()
 
 
-@router.post(
-    "/", response_model=TicketTypeResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=TicketTypeResponse, status_code=status.HTTP_201_CREATED)
 @idempotent(action="ticket_type_create")
 async def ticket_type_create(
     ticket_type_data: TicketTypeCreate,

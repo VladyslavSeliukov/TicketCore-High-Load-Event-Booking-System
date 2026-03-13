@@ -56,7 +56,7 @@ async def login_for_access_token(
 
 
 @router.patch(
-    "/change-password", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+    "/password", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
 async def change_user_password(
     passwords: PasswordChange,

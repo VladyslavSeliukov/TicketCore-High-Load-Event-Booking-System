@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 @router.post(
-    "/ticket/{ticket_id}",
+    "/{ticket_id}/payments",
     response_model=TicketPaymentSchema,
     status_code=status.HTTP_200_OK,
 )

@@ -18,7 +18,7 @@ from src.schemas.ticket import TicketCreate, TicketDetailResponse, TicketRespons
 router = APIRouter()
 
 
-@router.post("/", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
 @idempotent(action="create_ticket")
 async def create_ticket(
     owner: Annotated[User, Depends(get_current_user)],
@@ -70,7 +70,7 @@ async def get_ticket(
     return await ticket_service.get(owner_id=owner.id, ticket_id=ticket_id)
 
 
-@router.get("/", response_model=list[TicketResponse], status_code=status.HTTP_200_OK)
+@router.get("", response_model=list[TicketResponse], status_code=status.HTTP_200_OK)
 async def get_tickets(
     owner: Annotated[User, Depends(get_current_user)],
     ticket_service: TicketServiceDep,
