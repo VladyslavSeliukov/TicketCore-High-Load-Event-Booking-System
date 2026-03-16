@@ -32,7 +32,7 @@ that blocks the Redis single thread, causing cascading timeouts in production.
 * All old paginated caches instantly become logically orphaned (and naturally expire via
   TTL), guaranteeing zero dirty reads with $O(1)$ complexity.
 
-### 2. Flash Sale Bottlenecks & Atomic Inventory
+### 2. Flash Sale Bottlenecks & Atomic Inventory (Race Conditions)
 
 **Context:** During a flash sale (e.g., 10,000 users competing for 100 tickets), relying
 solely on PostgreSQL `SELECT ... FOR UPDATE` causes massive lock contention and
