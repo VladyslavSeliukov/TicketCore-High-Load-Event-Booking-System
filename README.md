@@ -32,7 +32,7 @@ that blocks the Redis single thread, causing cascading timeouts in production.
 * All old paginated caches instantly become logically orphaned (and naturally expire via
   TTL), guaranteeing zero dirty reads with $O(1)$ complexity.
 
-### 2. Flash Sale Bottlenecks & Atomic Inventory (Race Conditions)
+### 2. Flash Sale Bottlenecks & Atomic Inventory
 
 **Context:** During a flash sale (e.g., 10,000 users competing for 100 tickets), relying
 solely on PostgreSQL `SELECT ... FOR UPDATE` causes massive lock contention and
@@ -45,7 +45,7 @@ connection pool exhaustion.
   instantly returns a `TicketsSoldOutError` without ever opening a database connection,
   preserving DB CPU for actual successful transactions.
 
-### 3. Idempotency
+### 3. Network Instability & Double Spending (Idempotency)
 
 **Context:** In unstable mobile networks, clients often retry `POST /tickets/`
 requests (Payment/Booking). Without idempotency, this results in double-charging the
@@ -59,42 +59,43 @@ user.
 * Returns the cached JSON response of the original successful request, ensuring
   side-effects (DB commits, background jobs) occur strictly once.
 
-### 4. Distributed State Machine (The Booking Pattern)
+### 4. The Dual Write Problem & Hung Reservations
 
-**Context:** Unpaid tickets cannot be blocked forever. They must return to the pool if
-the user drops off at the payment screen.  
-**Decision:** Implemented a dual-layered garbage collection strategy using **Arq**.
+**Context:** The system utilizes Redis for fast inventory locking and PostgreSQL for
+persistent booking. If the Postgres transaction rolls back (e.g., due to a network
+drop), or if a user abandons the payment screen, ghost locks remain in Redis,
+permanently blocking inventory.  
+**Decision:** Implemented a **Dual-Layered Garbage Collection Strategy** via Arq.
 
-* **Primary:** `release_unpaid_ticket` background task is deferred (delayed) upon ticket
-  creation.
-* **Fallback:** A `garbage_collector` cron job runs periodically, utilizing PostgreSQL's
-  `UPDATE ... RETURNING` to sweep bulk 'hung' reservations and execute Redis `safe_incr`
-  Lua scripts to restore inventory. This guarantees eventual consistency even if a
-  specific worker pod dies mid-execution.
+* **Primary:** A `release_unpaid_ticket` background task is deferred upon ticket
+  creation to clear unpaid DB reservations.
+* **Reconciliation (Redis GC):** A cron job sweeps the `active_reservations_hash` in
+  Redis. Utilizing a 60-second Grace Period to prevent race conditions with in-flight
+  transactions, it compares Redis locks against PostgreSQL states. If a lock has no
+  corresponding committed DB record, the system idempotently restores the Redis
+  inventory, guaranteeing **Eventual Consistency**.
 
----
+### 5. Concurrency & Race Condition Prevention (Overselling)
 
-## 🏗 Architecture & Core Patterns
+**Context:** Even with Redis acting as a gatekeeper, concurrent database transactions
+can theoretically overwrite each other's state, leading to oversold events.  
+**Decision:** Strict **Pessimistic Locking**.
 
-* **Concurrency & Race Condition Prevention (Overselling)**
-    * **Pessimistic DB Locking:** Applied `SELECT ... FOR UPDATE SKIP LOCKED` to prevent
-      simultaneous transactions from overselling the last available tickets.
-    * **Distributed Locks:** Implemented Redlock algorithm via Redis for high-contention
-      endpoints where DB locking is sub-optimal.
-* **Eventual Consistency (Transactional Outbox Pattern)**
-    * Solved the "Dual Write" problem. Ticket creation and external message logging (
-      Outbox) are committed in a single atomic PostgreSQL transaction.
-    * Background worker (`Arq`) asynchronously processes the Outbox table to guarantee "
-      at-least-once" delivery for integrations (e.g., email notifications) without
-      blocking the API response.
-* **Fault Tolerance & Idempotency**
-    * Custom middleware caching the `Idempotency-Key` header and request payload hash in
-      Redis.
-    * Safely handles network drops and client retries on payment transactions by
-      returning cached responses, guaranteeing **zero double-spending**.
-* **Read-Heavy Optimization**
-    * Implemented Read-Aside caching via Redis for `GET /events` to offload PostgreSQL
-      during extreme traffic spikes.
+* Applied `SELECT ... FOR UPDATE SKIP LOCKED` inside PostgreSQL payment and booking
+  flows.
+* This ensures complete row-level isolation during concurrent transaction attempts,
+  preventing any possibility of overselling the last available tickets at the
+  persistence layer.
+
+### 6. Read-Heavy Optimization
+
+**Context:** Event catalogs experience massive spikes in read traffic, threatening to
+overwhelm the relational database.  
+**Decision:** **Read-Aside Caching Architecture**.
+
+* Implemented caching via Redis for all heavily accessed endpoints (`GET /events`).
+* Offloads over 90% of read operations from PostgreSQL during traffic spikes, keeping
+  the database available for critical write (booking/payment) operations.
 
 ---
 
@@ -105,7 +106,7 @@ transaction isolation under load.
 
 ### 🧪 Test Environment & Parameters
 
-The test was executed locally
+The test was executed locally:
 
 * **Hardware:** MacBook Air M1
 * **Application Server:** Uvicorn running `8` workers (`--workers 8`)
@@ -143,17 +144,3 @@ docker compose up --build -d
 
 # Run DB Migrations  
 docker compose exec backend alembic upgrade head
-```
-
-* **API Docs (Swagger):** `http://localhost/docs`
-* **Run Tests:** `uv run pytest `
-
----
-
-## 📬 Contact
-
-**Vladyslav Seliukov** - Backend Python Engineer
-
-* [GitHub Profile](https://github.com/VladyslavSeliukov)
-* [LinkedIn Profile](https://www.linkedin.com/in/vladyslav-seliukov/)
-* seliukovvladyslav@gmail.com
