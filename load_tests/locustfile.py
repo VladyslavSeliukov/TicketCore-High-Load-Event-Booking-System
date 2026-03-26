@@ -1,5 +1,3 @@
-"""Locust load testing script for the TicketCore API."""
-
 import json
 import os
 import random
