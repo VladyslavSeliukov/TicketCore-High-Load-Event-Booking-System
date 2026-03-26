@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgbouncer-config
+data:
+  PGBOUNCER_PORT: "5432"
+  PGBOUNCER_POOL_MODE: "transaction"
+  PGBOUNCER_IGNORE_STARTUP_PARAMETERS: "extra_float_digits"
+  PGBOUNCER_MAX_CLIENT_CONN: "5000"
+  PGBOUNCER_DEFAULT_POOL_SIZE: "50"
+  MAX_PREPARED_STATEMENTS: "100"
+  PGBOUNCER_LISTEN_BACKLOG: "2048"
