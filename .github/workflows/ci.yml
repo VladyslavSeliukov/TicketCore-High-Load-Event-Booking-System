@@ -37,9 +37,9 @@ jobs:
           --health-retries 5
 
     env:
-      ENVIRONMENT: test
-      SECRET_KEY: test_secret_key_for_ci_environment
-      TARGET_EVENT_ID: 1
+      ENVIRONMENT: "test"
+      SECRET_KEY: "test_secret_key_for_ci_environment"
+      TARGET_EVENT_ID: "1"
       AVAILABLE_TICKET_TYPES: "1,2"
 
       PROJECT_NAME: "TicketCore CI"
@@ -52,13 +52,13 @@ jobs:
       REDIS_TTL_SECONDS: "10"
       TICKET_RESERVATION_TIME_SECONDS: "900"
 
-      POSTGRES_USER: ci_user
-      POSTGRES_PASSWORD: ci_password
-      POSTGRES_DB: ticketcore_test_db
-      POSTGRES_HOST: localhost
-      POSTGRES_PORT: 5432
-      REDIS_HOST: localhost
-      REDIS_PORT: 6379
+      POSTGRES_USER: "ci_user"
+      POSTGRES_PASSWORD: "ci_password"
+      POSTGRES_DB: "ticketcore_test_db"
+      POSTGRES_HOST: "localhost"
+      POSTGRES_PORT: "5432"
+      REDIS_HOST: "localhost"
+      REDIS_PORT: "6379"
 
     steps:
       - name: Checkout code
