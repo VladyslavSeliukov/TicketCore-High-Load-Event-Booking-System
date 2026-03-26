@@ -125,3 +125,9 @@ class TicketAlreadyPaidError(PaymentError):
     """Raised when a payment attempt is made on an already SOLD ticket."""
 
     pass
+
+
+class HealthError(Exception):
+    """Raised when critical infrastructure dependencies are unreachable."""
+
+    pass
