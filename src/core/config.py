@@ -12,18 +12,18 @@ class Settings(BaseSettings):
     environment variables to the correct Python types.
     """
 
-    PROJECT_NAME: str = "TicketCore"
-    PROJECT_VERSION: str = "0.1.0"
+    PROJECT_NAME: str
+    PROJECT_VERSION: str
 
-    API_V1_STR: str = "/api/v1"
-    ENVIRONMENT: str = "dev"
-    LOG_LEVEL: str = "INFO"
+    API_V1_STR: str
+    ENVIRONMENT: str
+    LOG_LEVEL: str
 
     SECRET_KEY: str
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ALGORITHM: str
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
 
-    DEFAULT_PAGE_LIMIT: int = 100
+    DEFAULT_PAGE_LIMIT: int
 
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
@@ -31,11 +31,11 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str
     POSTGRES_PORT: str
 
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-    REDIS_TTL_SECONDS: int = 10
+    REDIS_HOST: str
+    REDIS_PORT: int
+    REDIS_TTL_SECONDS: int
 
-    TICKET_RESERVATION_TIME_SECONDS: int = 900
+    TICKET_RESERVATION_TIME_SECONDS: int
 
     @property
     def DATABASE_URL(self) -> str:

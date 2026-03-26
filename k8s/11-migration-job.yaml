@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ticketcore-migration-job
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: run-migrations
+          image: ticketcore-backend:latest
+          imagePullPolicy: Never
+          command: [ "/bin/sh", "-c", "alembic upgrade head" ]
+          envFrom:
+            - configMapRef:
+                name: ticketcore-config
+            - secretRef:
+                name: ticketcore-secret

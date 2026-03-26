@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import JSONResponse
 
+from src.api import health
 from src.api.v1 import auth, events, payment, ticket_type, tickets
 from src.core import logger
 from src.core.config import settings
@@ -12,6 +13,7 @@ from src.core.exception import (
     EmptyUpdateDataError,
     EventDeleteError,
     EventNotFoundError,
+    HealthError,
     IdempotencyConflictError,
     IdempotencyStateError,
     InactiveUserError,
@@ -50,6 +52,8 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     lifespan=lifespan,
 )
+
+app.include_router(health.router, tags=["System"])
 
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["Auth"])
 app.include_router(
@@ -147,16 +151,13 @@ async def empty_update_data_exception_handler(
     )
 
 
-@app.get("/", tags=["System"])
-async def main() -> dict[str, str]:
-    """Perform a basic system health check.
+@app.exception_handler(HealthError)
+async def service_unavailable(request: Request, exc: Exception) -> JSONResponse:
+    """Intercept infrastructure health failures and map them to HTTP 503.
 
-    Returns the current operational status, application name,
-    and active deployment environment. Used by load balancers
-    and monitoring tools to verify the API is alive.
+    Catches domain-specific health errors (e.g., unreachable database or cache)
+    and signals to the orchestrator that the instance is temporarily unavailable.
     """
-    return {
-        "status": "healthy",
-        "app": settings.PROJECT_NAME,
-        "env": settings.ENVIRONMENT,
-    }
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"detail": str(exc)}
+    )

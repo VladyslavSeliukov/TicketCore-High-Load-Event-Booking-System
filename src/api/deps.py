@@ -19,6 +19,7 @@ from src.repositories.event import CachedEventRepository, EventRepository
 from src.schemas.token import TokenPayload
 from src.services.auth import AuthService
 from src.services.event import EventService
+from src.services.health import HealthService
 from src.services.idempotency import IdempotencyService
 from src.services.payment import PaymentService
 from src.services.ticket import TicketService
@@ -197,9 +198,25 @@ async def get_payment_service(
     return PaymentService(session=session, redis=redis)
 
 
+async def get_health_service(
+    session: DBDep, redis: RedisClient = Depends(get_redis)
+) -> HealthService:
+    """Provide an initialized HealthService instance for dependency injection.
+
+    Args:
+        session (DBDep): Database session.
+        redis (RedisClient): Redis client.
+
+    Returns:
+        HealthService: The configured service instance.
+    """
+    return HealthService(session=session, redis=redis)
+
+
 TicketServiceDep = Annotated[TicketService, Depends(get_ticket_service)]
 EventServiceDep = Annotated[EventService, Depends(get_event_service)]
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 TicketTypeServiceDep = Annotated[TicketTypeService, Depends(get_ticket_type_service)]
 IdempotencyServiceDep = Annotated[IdempotencyService, Depends(get_idempotency_service)]
 PaymentServiceDep = Annotated[PaymentService, Depends(get_payment_service)]
+HealthServiceDep = Annotated[HealthService, Depends(get_health_service)]

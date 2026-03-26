@@ -11,7 +11,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 FROM python:3.12-slim
 
-RUN useradd -m appuser
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
 RUN apt-get update && \
   apt-get install -y curl && \
@@ -20,16 +20,16 @@ RUN apt-get update && \
 WORKDIR /app
 ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONPATH=/app/src
-ENV PYTHONUNBUFFERED = 1
-ENV UV_COMPILE_BYTECODE = 1
+ENV PYTHONUNBUFFERED=1
+ENV UV_COMPILE_BYTECODE=1
 
 COPY --from=builder /opt/venv /opt/venv
 
-COPY src ./src
+COPY --chown=appuser:appgroup alembic.ini .
+COPY --chown=appuser:appgroup migrations/ ./migrations/
+
+COPY --chown=appuser:appgroup src ./src
 
 USER appuser
-
-HEALTHCHECK --interval=30s --timeout=10s --retries=5 \
-    CMD curl --fail http://localhost:8000/ || exit 1
 
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
