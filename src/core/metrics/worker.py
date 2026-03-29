@@ -1,7 +1,7 @@
 import asyncio
 import time
-from collections.abc import Awaitable, Callable
-from typing import ParamSpec, TypeVar, cast
+from collections.abc import Awaitable, Callable, Coroutine
+from typing import Any, ParamSpec, TypeVar, cast
 
 from arq.constants import default_queue_name
 from prometheus_client import Counter, Gauge, Histogram
@@ -29,7 +29,9 @@ ARQ_QUEUE_DEPTH = Gauge("arq_queue_depth", "Number of pending tasks in the ARQ q
 
 def monitor_task(
     task_name: str,
-) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
+) -> Callable[
+    [Callable[P, Coroutine[Any, Any, T]]], Callable[P, Coroutine[Any, Any, T]]
+]:
     """Decorator for collecting Prometheus metrics on ARQ worker tasks.
 
     Wraps an asynchronous background task to automatically measure its execution time
@@ -44,7 +46,9 @@ def monitor_task(
         The decorated asynchronous function.
     """
 
-    def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
+    def decorator(
+        func: Callable[P, Coroutine[Any, Any, T]],
+    ) -> Callable[P, Coroutine[Any, Any, T]]:
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             start_time: float = time.time()
             status: str = "success"
