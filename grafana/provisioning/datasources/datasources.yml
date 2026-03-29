@@ -1,0 +1,9 @@
+apiVersion: 1
+datasources:
+  - name: prometheus-provisioned
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    uid: ticketcore-prom-id
+    editable: false

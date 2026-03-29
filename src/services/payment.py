@@ -12,6 +12,7 @@ from src.core.exception import (
     TicketNotFoundError,
     TicketReservationExpireError,
 )
+from src.core.metrics import TICKETS_SOLD_TOTAL
 from src.core.redis_keys import RedisKeys
 from src.models import Ticket
 from src.models.ticket import TicketStatus
@@ -76,6 +77,8 @@ class PaymentService:
                 Awaitable[int],
                 self.redis.hdel(RedisKeys.active_reservations_hash(), str(ticket_id)),
             )
+
+            TICKETS_SOLD_TOTAL.inc()
             logger.info(f"Ticket {ticket_id} successfully PAID")
         except SQLAlchemyError:
             await self.db.rollback()

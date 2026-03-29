@@ -37,6 +37,8 @@ class Settings(BaseSettings):
 
     TICKET_RESERVATION_TIME_SECONDS: int
 
+    WORKER_METRICS_PORT: int
+
     @property
     def DATABASE_URL(self) -> str:
         """Construct the asynchronous PostgreSQL connection string.

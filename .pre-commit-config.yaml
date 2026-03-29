@@ -25,6 +25,8 @@ repos:
           "types-PyJWT",
           "polyfactory",
           "redis>=5.0.0",
-          "arq"
+          "arq",
+          "prometheus-client",
+          "prometheus_fastapi_instrumentator",
         ]
         args: [ "--config-file=pyproject.toml" ]
