@@ -26,3 +26,8 @@ htmlcov/
 .mypy_cache/
 
 docker-compose.override.yml
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
