@@ -1,14 +1,7 @@
-version: '3.8'
-
 x-logging: &default-logging
   driver: "json-file"
   options:
     max-size: "10m"
-x-deploy: &default-deploying
-  resources:
-    limits:
-      cpus: '1'
-      memory: 512M
 
 services:
   db:
@@ -19,8 +12,6 @@ services:
       - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER}" ]
       interval: 5s
@@ -40,7 +31,7 @@ services:
   backend:
     build: .
     restart: unless-stopped
-    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 8
+    command: sh -c "alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 1"
     expose:
       - '8000'
     env_file:
@@ -66,6 +57,8 @@ services:
     build: .
     restart: unless-stopped
     command: arq src.worker.WorkerSettings
+    expose:
+      - "${WORKER_METRICS_PORT}"
     env_file:
       - .env
     environment:
@@ -94,8 +87,41 @@ services:
       - backend_network
     logging: *default-logging
 
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    networks:
+      - backend_network
+    logging: *default-logging
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./terraform/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - backend_network
+    logging: *default-logging
+
 volumes:
   postgres_data:
+  prometheus_data:
 
 networks:
   backend_network:
