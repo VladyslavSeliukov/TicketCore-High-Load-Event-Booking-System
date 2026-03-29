@@ -2,6 +2,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
+from prometheus_client.core import REGISTRY
+from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import JSONResponse
 
@@ -27,7 +29,9 @@ from src.core.exception import (
     TicketTypeQuantity,
     UserAlreadyExistsError,
 )
+from src.core.metrics.db import SQLAlchemyPoolCollector
 from src.db.redis import close_redis_pool, init_redis_pool
+from src.db.session import engine
 
 
 @asynccontextmanager
@@ -40,7 +44,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Initializing Redis Pool...")
     await init_redis_pool()
 
+    db_collector = SQLAlchemyPoolCollector(engine)
+    REGISTRY.register(db_collector)
+
     yield
+
+    REGISTRY.unregister(db_collector)
 
     logger.info("Closing Redis pool...")
     await close_redis_pool()
@@ -54,6 +63,13 @@ app = FastAPI(
 )
 
 app.include_router(health.router, tags=["System"])
+
+Instrumentator(
+    should_group_status_codes=False,
+    should_ignore_untemplated=True,
+).instrument(app).expose(
+    app, tags=["System"], include_in_schema=False, should_gzip=True
+)
 
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["Auth"])
 app.include_router(

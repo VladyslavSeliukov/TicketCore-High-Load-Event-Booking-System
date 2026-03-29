@@ -15,6 +15,7 @@ from src.core.exception import (
     TicketsSoldOutError,
     TicketTypeNotFoundError,
 )
+from src.core.metrics import TICKETS_CANCELED_TOTAL, TICKETS_RESERVED_TOTAL
 from src.core.redis_keys import RedisKeys
 from src.models import Ticket, TicketType
 from src.schemas import TicketCreate, TicketResponse
@@ -111,6 +112,7 @@ class TicketService:
             await self.db.commit()
             await self.db.refresh(new_ticket)
 
+            TICKETS_RESERVED_TOTAL.inc()
             logger.info(f"Ticket created: {new_ticket.id}")
 
             await self.arq_pool.enqueue_job(
@@ -234,6 +236,7 @@ class TicketService:
                 self.redis.hdel(RedisKeys.active_reservations_hash(), str(ticket_id)),
             )
 
+            TICKETS_CANCELED_TOTAL.labels(reason="user_request").inc()
             logger.info(f"Ticket deleted: {ticket_id}")
         except SQLAlchemyError:
             await self.db.rollback()

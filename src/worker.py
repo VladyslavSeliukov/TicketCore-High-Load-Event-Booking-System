@@ -1,3 +1,4 @@
+import asyncio
 import time
 from collections import Counter
 from datetime import UTC, datetime, timedelta
@@ -5,11 +6,14 @@ from typing import Any
 
 from arq import cron
 from arq.connections import RedisSettings
+from prometheus_client import start_http_server
 from redis.asyncio import Redis
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.core import logger, settings
+from src.core.metrics import TICKETS_CANCELED_TOTAL, monitor_task
+from src.core.metrics.worker import monitor_queue_depth
 from src.core.redis_keys import RedisKeys
 from src.models import Ticket, TicketType
 from src.models.ticket import TicketStatus
@@ -23,6 +27,10 @@ async def startup(ctx: dict[str, Any]) -> None:
     """
     logger.info("Starting Arq Worker...")
 
+    start_http_server(settings.WORKER_METRICS_PORT)
+    logger.info(
+        f"Prometheus metrics server started on port {settings.WORKER_METRICS_PORT}"
+    )
     engine = create_async_engine(
         settings.DATABASE_URL, echo=settings.ENVIRONMENT == "dev", future=True
     )
@@ -31,6 +39,9 @@ async def startup(ctx: dict[str, Any]) -> None:
     ctx["session_maker"] = async_sessionmaker(
         bind=engine, class_=AsyncSession, expire_on_commit=False, autoflush=False
     )
+
+    ctx["queue_monitor_task"] = asyncio.create_task(monitor_queue_depth(ctx["redis"]))
+
     logger.info("Worker started")
 
 
@@ -44,7 +55,8 @@ async def shutdown(ctx: dict[str, Any]) -> None:
     logger.info("Worker shut down")
 
 
-async def release_unpaid_ticket(ctx: dict[str, Any], ticket_id: int) -> None:
+@monitor_task("release_unpaid_ticket")
+async def release_unpaid_ticket(ctx: dict[Any, Any], ticket_id: int) -> None:
     """Targeted background task to release a specific unpaid ticket reservation.
 
     Executed after a predefined timeout. Checks if the ticket is still in
@@ -93,6 +105,7 @@ async def release_unpaid_ticket(ctx: dict[str, Any], ticket_id: int) -> None:
 
             await session.commit()
 
+            TICKETS_CANCELED_TOTAL.labels(reason="timeout").inc()
             logger.info(
                 f"Worker Task: Ticket {ticket_id} successfully CANCELED due to timeout"
             )
@@ -104,7 +117,8 @@ async def release_unpaid_ticket(ctx: dict[str, Any], ticket_id: int) -> None:
             raise
 
 
-async def reconcile_hung_tickets(ctx: dict[str, Any]) -> None:
+@monitor_task("reconcile_hung_tickets")
+async def reconcile_hung_tickets(ctx: dict[Any, Any]) -> None:
     """Periodic garbage collection task for stuck reservations.
 
     Runs as a cron job to find any tickets that remained in 'RESERVED' status
@@ -154,10 +168,13 @@ async def reconcile_hung_tickets(ctx: dict[str, Any]) -> None:
             )
 
         await session.commit()
+
+        TICKETS_CANCELED_TOTAL.labels("garbage_collector").inc(len(canceled_tickets))
         logger.info("Garbage Collector: Successfully returned tickets to DB and Redis")
 
 
-async def reconcile_redis_orphans(ctx: dict[str, Any]) -> None:
+@monitor_task("reconcile_redis_orphans")
+async def reconcile_redis_orphans(ctx: dict[Any, Any]) -> None:
     """Find and refund orphaned reservations in Redis.
 
     Uses a grace period to prevent race conditions with slow database transactions.
