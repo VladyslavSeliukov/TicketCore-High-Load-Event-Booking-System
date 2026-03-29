@@ -27,5 +27,6 @@ repos:
           "redis>=5.0.0",
           "arq",
           "prometheus-client",
+          "prometheus_fastapi_instrumentator",
         ]
         args: [ "--config-file=pyproject.toml" ]
