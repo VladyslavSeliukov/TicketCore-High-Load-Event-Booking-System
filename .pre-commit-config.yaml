@@ -25,6 +25,7 @@ repos:
           "types-PyJWT",
           "polyfactory",
           "redis>=5.0.0",
-          "arq"
+          "arq",
+          "prometheus-client",
         ]
         args: [ "--config-file=pyproject.toml" ]

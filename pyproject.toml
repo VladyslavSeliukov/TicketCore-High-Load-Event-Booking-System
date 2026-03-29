@@ -17,6 +17,7 @@ dependencies = [
     "sqlalchemy>=2.0.45",
     "uvicorn>=0.40.0",
     "PyJWT>=2.8.0",
+    "prometheus-fastapi-instrumentator>=7.1.0",
 ]
 
 [build-system]
@@ -103,7 +104,9 @@ module = [
     "asyncpg.*",
     "factories.*",
     "locust.*",
-    "load_tests.*"
+    "load_tests.*",
+    "prometheus_client",
+    "prometheus_client.*",
 ]
 ignore_missing_imports = true
 disallow_untyped_decorators = false
