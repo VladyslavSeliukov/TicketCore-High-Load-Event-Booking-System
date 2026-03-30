@@ -19,7 +19,7 @@ WORKER_TASKS_TOTAL = Counter(
     ["task_name", "status"],
 )
 WORKER_TASK_DURATION = Histogram(
-    "worker_task_duration_second",
+    "worker_task_duration_seconds",
     "Duration of background tasks",
     ["task_name"],
     buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0),
