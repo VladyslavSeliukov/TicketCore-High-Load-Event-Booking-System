@@ -27,10 +27,8 @@ async def startup(ctx: dict[str, Any]) -> None:
     """
     logger.info("Starting Arq Worker...")
 
-    start_http_server(settings.WORKER_METRICS_PORT)
-    logger.info(
-        f"Prometheus metrics server started on port {settings.WORKER_METRICS_PORT}"
-    )
+    start_http_server(8001)
+    logger.info(f"Prometheus metrics server started on port {8001}")
     engine = create_async_engine(
         settings.DATABASE_URL, echo=settings.ENVIRONMENT == "dev", future=True
     )

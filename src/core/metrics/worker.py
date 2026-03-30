@@ -1,6 +1,7 @@
 import asyncio
 import time
 from collections.abc import Awaitable, Callable, Coroutine
+from functools import wraps
 from typing import Any, ParamSpec, TypeVar, cast
 
 from arq.constants import default_queue_name
@@ -18,7 +19,7 @@ WORKER_TASKS_TOTAL = Counter(
     ["task_name", "status"],
 )
 WORKER_TASK_DURATION = Histogram(
-    "worker_task_duration_second",
+    "worker_task_duration_seconds",
     "Duration of background tasks",
     ["task_name"],
     buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0),
@@ -49,6 +50,7 @@ def monitor_task(
     def decorator(
         func: Callable[P, Coroutine[Any, Any, T]],
     ) -> Callable[P, Coroutine[Any, Any, T]]:
+        @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             start_time: float = time.time()
             status: str = "success"
@@ -80,7 +82,7 @@ async def monitor_queue_depth(redis: Redis) -> None:
     while True:
         try:
             queue_length: int = await cast(
-                Awaitable[int], redis.llen(default_queue_name)
+                Awaitable[int], redis.zcard(default_queue_name)
             )
             ARQ_QUEUE_DEPTH.set(queue_length)
             await asyncio.sleep(5)

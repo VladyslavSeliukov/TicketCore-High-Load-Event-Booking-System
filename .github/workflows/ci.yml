@@ -59,8 +59,6 @@ jobs:
       POSTGRES_PORT: "5432"
       REDIS_HOST: "localhost"
       REDIS_PORT: "6379"
-
-      WORKER_METRICS_PORT: "8001"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
