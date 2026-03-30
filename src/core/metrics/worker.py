@@ -82,7 +82,7 @@ async def monitor_queue_depth(redis: Redis) -> None:
     while True:
         try:
             queue_length: int = await cast(
-                Awaitable[int], redis.llen(default_queue_name)
+                Awaitable[int], redis.zcard(default_queue_name)
             )
             ARQ_QUEUE_DEPTH.set(queue_length)
             await asyncio.sleep(5)
