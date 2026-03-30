@@ -1,6 +1,7 @@
 import asyncio
 import time
 from collections.abc import Awaitable, Callable, Coroutine
+from functools import wraps
 from typing import Any, ParamSpec, TypeVar, cast
 
 from arq.constants import default_queue_name
@@ -49,6 +50,7 @@ def monitor_task(
     def decorator(
         func: Callable[P, Coroutine[Any, Any, T]],
     ) -> Callable[P, Coroutine[Any, Any, T]]:
+        @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             start_time: float = time.time()
             status: str = "success"
