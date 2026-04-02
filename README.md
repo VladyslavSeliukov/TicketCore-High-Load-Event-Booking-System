@@ -11,91 +11,71 @@ Double Spending, and Data Consistency under heavy load.
 * **Database:** PostgreSQL 16 (Asyncpg, SQLAlchemy 2.0)
 * **Caching & Locks:** Redis 7
 * **Background Jobs:** Arq (Redis-based worker)
-* **Infra:** Docker Compose, GitHub Actions (CI/CD pipelines for linting & testing)
+* **Background Jobs:** Arq (Redis-based worker)
+* **Infra & DevOps:** Docker Compose, Kubernetes (EKS), AWS (VPC, ECR), Terraform (IaC),
+  GitHub Actions
+* **Observability:** Prometheus, Grafana
 * **Testing:** Pytest (Unit/Integration), Locust (Stress testing)
 
 --- 
 
-## 🧠 Deep Dive: Engineering Challenges & Architecture Decision Records
+## 🧠 Deep Dive
 
-### 1. The Paginated Cache Invalidation Problem
+### 1. O(1) Cache Invalidation
 
-**Context:** Caching `GET /events` with an offset/limit is trivial until an event is
-updated. Deleting all paginated cache keys using Redis `KEYS *` is an $O(N)$ operation
-that blocks the Redis single thread, causing cascading timeouts in production.  
-**Decision:** Implemented **O(1) Cache Invalidation using Versioned Keys**.
+* **Problem:** Invalidating paginated API caches using Redis `KEYS *` is an O(N)
+  blocking operation.
+* **Solution:** Implemented **Versioned Keys**. Appended a global version integer to
+  cache keys; mutations trigger an atomic `INCR` on the version, instantly and logically
+  invalidating all old caches without blocking the single Redis thread.
 
-* The `CachedEventRepository` appends a global `list_version` integer to all paginated
-  Redis keys.
-* On any `update` or `delete` operation, the system simply runs an atomic `INCR` on the
-  global version key.
-* All old paginated caches instantly become logically orphaned (and naturally expire via
-  TTL), guaranteeing zero dirty reads with $O(1)$ complexity.
+### 2. Flash Sale Gatekeeping (Race Conditions)
 
-### 2. Flash Sale Bottlenecks & Atomic Inventory (Race Conditions)
+* **Problem:** Massive concurrent traffic (e.g., 10,000 users competing for 100 tickets)
+  exhausts PostgreSQL connection pools via lock contention.
+* **Solution:** Offloaded atomic inventory decrements to **Redis Lua scripts** before DB
+  interaction. Acts as a shock absorber—rejecting sold-out requests strictly in-memory,
+  preserving database CPU for successful writes.
 
-**Context:** During a flash sale (e.g., 10,000 users competing for 100 tickets), relying
-solely on PostgreSQL `SELECT ... FOR UPDATE` causes massive lock contention and
-connection pool exhaustion.  
-**Decision:** Implemented **Redis Lua-Script Gatekeeping**.
+### 3. API Idempotency (Double-Spend Prevention)
 
-* Inventory decrements are executed atomically inside Redis via custom Lua scripts
-  *before* the request is allowed to reach PostgreSQL.
-* This acts as a shock absorber: if Redis returns `0` available tickets, the API
-  instantly returns a `TicketsSoldOutError` without ever opening a database connection,
-  preserving DB CPU for actual successful transactions.
+* **Problem:** Network retries on payment/booking endpoints result in duplicate
+  transactions and double charges.
+* **Solution:** Engineered a custom `@idempotent` FastAPI decorator backed by **Redis
+  distributed locks (NX)**. Hashes request payloads and headers to guarantee
+  strictly-once execution, serving cached responses for retry bursts.
 
-### 3. Network Instability & Double Spending (Idempotency)
+### 4. Distributed State Reconciliation (Hung Reservations)
 
-**Context:** In unstable mobile networks, clients often retry `POST /tickets/`
-requests (Payment/Booking). Without idempotency, this results in double-charging the
-user.  
-**Decision:** Created a custom `@idempotent` FastAPI decorator backed by Redis.
+* **Problem:** The Dual-Write problem. If a Postgres transaction rolls back (or a user
+  abandons payment), ghost locks remain in Redis, permanently blocking inventory.
+* **Solution:** Implemented a **Garbage Collection Cron (Eventual Consistency)** via
+  Arq. Periodically sweeps Redis active reservations against PostgreSQL committed
+  states (with a 60s grace period) to idempotently restore orphaned inventory.
 
-* Generates a deterministic `SHA-256` hash of the request payload combined with the
-  client-provided `Idempotency-Key` header.
-* Uses Redis distributed locks (`NX` flag) to prevent concurrent execution of the same
-  request.
-* Returns the cached JSON response of the original successful request, ensuring
-  side-effects (DB commits, background jobs) occur strictly once.
+### 5. Strict Pessimistic Locking
 
-### 4. The Dual Write Problem & Hung Reservations
+* **Problem:** Ensuring absolutely zero overselling at the persistence layer during
+  concurrent transactions.
+* **Solution:** Enforced strict row-level isolation utilizing
+  `SELECT ... FOR UPDATE SKIP LOCKED` during critical booking and payment flows.
 
-**Context:** The system utilizes Redis for fast inventory locking and PostgreSQL for
-persistent booking. If the Postgres transaction rolls back (e.g., due to a network
-drop), or if a user abandons the payment screen, ghost locks remain in Redis,
-permanently blocking inventory.  
-**Decision:** Implemented a **Dual-Layered Garbage Collection Strategy** via Arq.
+### 6. Read-Aside Architecture
 
-* **Primary:** A `release_unpaid_ticket` background task is deferred upon ticket
-  creation to clear unpaid DB reservations.
-* **Reconciliation (Redis GC):** A cron job sweeps the `active_reservations_hash` in
-  Redis. Utilizing a 60-second Grace Period to prevent race conditions with in-flight
-  transactions, it compares Redis locks against PostgreSQL states. If a lock has no
-  corresponding committed DB record, the system idempotently restores the Redis
-  inventory, guaranteeing **Eventual Consistency**.
+* **Problem:** Read-heavy event catalog queries threatening to overwhelm the relational
+  database.
+* **Solution:** Implemented a robust caching layer, successfully offloading 90%+ of
+  `GET /events` traffic to Redis, reserving PostgreSQL capacity exclusively for
+  transactional writes.
 
-### 5. Concurrency & Race Condition Prevention (Overselling)
+### 7. FinOps, IaC & Hardware Observability
 
-**Context:** Even with Redis acting as a gatekeeper, concurrent database transactions
-can theoretically overwrite each other's state, leading to oversold events.  
-**Decision:** Strict **Pessimistic Locking**.
-
-* Applied `SELECT ... FOR UPDATE SKIP LOCKED` inside PostgreSQL payment and booking
-  flows.
-* This ensures complete row-level isolation during concurrent transaction attempts,
-  preventing any possibility of overselling the last available tickets at the
-  persistence layer.
-
-### 6. Read-Heavy Optimization
-
-**Context:** Event catalogs experience massive spikes in read traffic, threatening to
-overwhelm the relational database.  
-**Decision:** **Read-Aside Caching Architecture**.
-
-* Implemented caching via Redis for all heavily accessed endpoints (`GET /events`).
-* Offloads over 90% of read operations from PostgreSQL during traffic spikes, keeping
-  the database available for critical write (booking/payment) operations.
+* **Problem:** Running a 24/7 managed AWS infrastructure (EKS, RDS, ElastiCache) is
+  cost-prohibitive, and theoretical RPS claims lack verifiable hardware proof.
+* **Solution:** Engineered **Ephemeral Environments** via **Terraform**. Provisioned a
+  5-node EKS cluster deploying Postgres/Redis internally to bypass managed DB costs.
+  Integrated **Prometheus & Grafana** to scrape custom metrics, hardware-backing
+  benchmarks.
 
 ---
 
@@ -144,3 +124,16 @@ docker compose up --build -d
 
 # Run DB Migrations  
 docker compose exec backend alembic upgrade head
+```
+
+* **API Docs (Swagger):** `http://localhost/docs`
+* **Run Tests:** `uv run pytest `
+
+---
+
+## 📬 Contact
+
+**Vladyslav Seliukov** - Backend Python Engineer
+
+* [LinkedIn Profile](https://www.linkedin.com/in/vladyslav-seliukov/)
+* seliukovvladyslav@gmail.com
