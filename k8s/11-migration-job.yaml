@@ -9,11 +9,14 @@ spec:
       restartPolicy: Never
       containers:
         - name: run-migrations
-          image: ticketcore-backend:latest
-          imagePullPolicy: Never
+          image: 047646727711.dkr.ecr.eu-central-1.amazonaws.com/ticketcore-backend:latest
+          imagePullPolicy: Always
           command: [ "/bin/sh", "-c", "alembic upgrade head" ]
           envFrom:
             - configMapRef:
                 name: ticketcore-config
             - secretRef:
                 name: ticketcore-secret
+          env:
+            - name: POSTGRES_HOST
+              value: "postgres-svc"

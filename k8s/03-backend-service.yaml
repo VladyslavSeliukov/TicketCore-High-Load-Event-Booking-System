@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: backend-svc
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   selector:
     app: ticketcore-backend
   ports:
