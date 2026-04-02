@@ -112,7 +112,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./terraform/dashboards:/var/lib/grafana/dashboards:ro
+      - ./terraform/local_observability/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
     networks:
