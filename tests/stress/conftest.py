@@ -8,6 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from src.db.session import get_db
 from src.main import app
 from src.models import Event, Ticket, TicketType
+from tests.fixtures.db import clean_tables, client, db_connection, setup_test_db
+from tests.fixtures.redis import flush_redis_between_tests, setup_redis_for_tests
+
+__all__ = [
+    "clean_tables",
+    "db_connection",
+    "setup_test_db",
+    "flush_redis_between_tests",
+    "setup_redis_for_tests",
+    "client",
+]
 
 
 @pytest.fixture

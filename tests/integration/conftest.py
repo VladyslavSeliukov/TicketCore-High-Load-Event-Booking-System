@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any
 
 import pytest
@@ -11,6 +11,31 @@ from tests.factories import (
     TicketTypeFactory,
     UserFactory,
 )
+from tests.fixtures.db import clean_tables, client, db_connection, setup_test_db
+from tests.fixtures.redis import flush_redis_between_tests, setup_redis_for_tests
+
+__all__ = [
+    "clean_tables",
+    "db_connection",
+    "setup_test_db",
+    "flush_redis_between_tests",
+    "setup_redis_for_tests",
+    "client",
+]
+
+
+@pytest.fixture(scope="session", autouse=True)
+async def _auto_setup_db(setup_test_db: AsyncGenerator[None, None]) -> None:
+    pass
+
+
+@pytest.fixture(autouse=True)
+async def _auto_clean_infrastructure(
+    clean_tables: None,
+    setup_redis_for_tests: AsyncGenerator[None, None],
+    flush_redis_between_tests: None,
+) -> None:
+    pass
 
 
 @pytest.fixture
